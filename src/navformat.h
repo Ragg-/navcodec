@@ -34,26 +34,26 @@ extern "C" {
 
 using namespace v8;
 
-class NAVFormat : node::ObjectWrap {
+class NAVFormat : public node::ObjectWrap {
 private:
   AVFormatContext *pFormatCtx;
   char *filename;
   Handle<Array> streams;
-  
+
 public:
   NAVFormat();
   ~NAVFormat();
-  
-  static Persistent<FunctionTemplate> templ;
-  
-  static void Init(Handle<Object> target);
-  
-  static Handle<Value> New(const Arguments& args);
-    
+
+  static Persistent<FunctionTemplate> constructor;
+
+  static void Init(v8::Local<v8::Object> target);
+
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // ([streams], cb(stream, frame))
-  static Handle<Value> Version(const Arguments& args);
-  static Handle<Value> Decode(const Arguments& args);
-  static Handle<Value> Dump(const Arguments& args);
+  static void Version(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void Decode(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void Dump(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 
@@ -61,20 +61,19 @@ public:
 // Decoder Notifier class. Used for clients notifying when they are done
 // processing a decoded frame.
 //
-class DecoderNotifier : node::ObjectWrap {
+class DecoderNotifier : public node::ObjectWrap {
 
 public:
-
   struct Baton *pBaton;
   DecoderNotifier(Baton *pBaton);
   ~DecoderNotifier();
-  
-  static Persistent<ObjectTemplate> templ;
-  
+
+  static Persistent<ObjectTemplate> constructor;
+
   static void Init();
-  
-  static Handle<Object> New(Baton *pBaton);
-  static Handle<Value> Done(const Arguments& args);
+
+  static void New(Baton *pBaton);
+  static void Done(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif // _NAVFORMAT_H

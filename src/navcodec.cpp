@@ -32,40 +32,40 @@ extern "C" {
 using namespace v8;
 
 extern "C" { // Cause of name mangling in C++, we use extern C here
-  static void init(Handle<Object> target) {
-    
+  static void init(v8::Local<v8::Object> target) {
+    v8::Isolate *isolate = target->GetIsolate();
+
     setbuf(stdout, NULL);
-  
+
     // Global initiallization of libavcodec.
     av_register_all();
     avformat_network_init();
-    
-    Handle<Array> version = Array::New(3);
-    version->Set(0, Integer::New(LIBAVFORMAT_VERSION_MAJOR));
-    version->Set(1, Integer::New(LIBAVFORMAT_VERSION_MINOR));
-    version->Set(2, Integer::New(LIBAVFORMAT_VERSION_MICRO));
-    
-    target->Set(String::NewSymbol("AVFormatVersion"), version); 
-    
-    target->Set(String::NewSymbol("PixelFormat"), CreatePixelFormatsEnum());
-    target->Set(String::NewSymbol("CodecId"), CreateCodecIdEnum());
-    
+
+    v8::Local<v8::Array> version = Array::New(isolate, 3);
+    version->Set(0, Integer::New(isolate, LIBAVFORMAT_VERSION_MAJOR));
+    version->Set(1, Integer::New(isolate, LIBAVFORMAT_VERSION_MINOR));
+    version->Set(2, Integer::New(isolate, LIBAVFORMAT_VERSION_MICRO));
+
+    target->Set(String::NewFromUtf8(isolate, "AVFormatVersion"), version);
+
+    target->Set(String::NewFromUtf8(isolate, "PixelFormat"), CreatePixelFormatsEnum());
+    target->Set(String::NewFromUtf8(isolate, "CodecId"), CreateCodecIdEnum());
+
     NAVFormat::Init(target);
     NAVOutputFormat::Init(target);
     NAVSws::Init(target);
     NAVResample::Init(target);
     NAVThumbnail::Init(target);
-    
-    target->Set(String::NewSymbol("relocateMoov"), FunctionTemplate::New(RelocateMoov)->GetFunction());
-    
+
+    target->Set(String::NewFromUtf8(isolate, "relocateMoov"), FunctionTemplate::New(isolate, RelocateMoov)->GetFunction());
+
     // Objects only instantiable from C++
     NAVFrame::Init();
-    NAVStream::Init();    
+    NAVStream::Init(isolate);
     NAVCodecContext::Init();
     NAVDictionary::Init();
-    
+
     DecoderNotifier::Init();
   }
   NODE_MODULE(navcodec, init);
 }
-

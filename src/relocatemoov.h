@@ -6,7 +6,6 @@
 
 using namespace v8;
 
-Handle<Value> RelocateMoov(const Arguments& args);
+void RelocateMoov(const v8::FunctionCallbackInfo<v8::Value>& args);
 
 #endif
-
