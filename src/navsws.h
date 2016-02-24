@@ -51,7 +51,7 @@ public:
   NAVSws();
   ~NAVSws();
 
-  static v8::Persistent<v8::FunctionTemplate> constructor;
+  static v8::Persistent<v8::Function> constructor;
 
   static void Init(v8::Local<v8::Object> target);
 

@@ -133,7 +133,7 @@ void NAVOutputFormat::Init(v8::Local<v8::Object> target){
   Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
 
   tpl->InstanceTemplate()->SetInternalFieldCount(1);
-  tpl->SetClassName(String::NewSymbol("NAVOutputFormat"));
+  tpl->SetClassName(String::NewFromUtf8(isolate, "NAVOutputFormat"));
 
   NODE_SET_PROTOTYPE_METHOD(tpl, "addStream", AddStream);
   NODE_SET_PROTOTYPE_METHOD(tpl, "begin", Begin);
@@ -159,46 +159,53 @@ void NAVOutputFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   self->Set(String::NewFromUtf8(isolate, "streams"), streams);
 
   if (args.Length()==0){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Not enough parameters")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Not enough parameters")));
+    return;
   }
 
   if (!args[0]->IsString()){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Input parameter #0 should be a string")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Input parameter #0 should be a string")));
+    return;
   }
 
-  String::Utf8Value v8str(isolate, args[0]);
+  String::Utf8Value v8str(args[0]);
   instance->filename = strdup(*v8str);
   if(instance->filename == NULL){
-    return ThrowException(Exception::Error(String::New(isolate, "Error allocating filename string")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error allocating filename string")));
+    return;
   }
 
   if(args.Length()>1){
     if (!args[1]->IsString()){
       free(instance->filename);
-      return ThrowException(Exception::TypeError(String::New(v"Input parameter #1 should be a string")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Input parameter #1 should be a string")));
+      return;
     }
-    String::Utf8Value v8codec_name(isolate, args[1]);
+    String::Utf8Value v8codec_name(args[1]);
     codec_name = strdup(*v8codec_name);
   }
   if(args.Length()>2){
     if (!args[2]->IsString()){
       free((void*)codec_name);
       free(instance->filename);
-      return ThrowException(Exception::TypeError(String::New(isolate, "Input parameter #2 should be a string")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Input parameter #2 should be a string")));
+      return;
     }
-    String::Utf8Value v8mime_type(isoalate, args[2]);
+    String::Utf8Value v8mime_type(args[2]);
     mime_type = strdup(*v8mime_type);
   }
 
   instance->pOutputFormat = av_guess_format(codec_name, instance->filename, mime_type);
 
   if(!instance->pOutputFormat){
-    return ThrowException(Exception::Error(String::New(isolate, "Could not find suitable output format")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not find suitable output format")));
+    return;
   }
 
   instance->pFormatCtx = avformat_alloc_context();
   if(!instance->pFormatCtx){
-    return ThrowException(Exception::Error(String::New(isolate, "Could not alloc format context")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not alloc format context")));
+    return;
   }
 
   instance->pFormatCtx->oformat = instance->pOutputFormat;
@@ -206,7 +213,7 @@ void NAVOutputFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   free((void*)codec_name);
   free((void*)mime_type);
 
-  return self;
+  args.GetReturnValue().Set(self);
 }
 
 static PixelFormat get_pix_fmt(AVCodec *pCodec, PixelFormat pix_fmt){
@@ -237,11 +244,13 @@ void NAVOutputFormat::AddStream(const v8::FunctionCallbackInfo<v8::Value>& args)
   NAVOutputFormat* instance = UNWRAP_OBJECT(NAVOutputFormat, args);
 
   if (args.Length()<1){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Not enough parameters")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Not enough parameters")));
+    return;
   }
 
   if (!args[0]->IsString()){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Input parameter #0 should be a string")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Input parameter #0 should be a string")));
+    return;
   }
 
   options = Object::New(isolate);
@@ -249,11 +258,12 @@ void NAVOutputFormat::AddStream(const v8::FunctionCallbackInfo<v8::Value>& args)
     if(args[1]->IsObject()) {
       options = (Local<Object>::Cast(args[1]))->Clone();
     }else {
-      return ThrowException(Exception::TypeError(String::New(isolate, "Input parameter #1 should be an object")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Input parameter #1 should be an object")));
+      return;
     }
   }
 
-  String::Utf8Value v8streamType(isolate, args[0]);
+  String::Utf8Value v8streamType(args[0]);
   if(strcmp(*v8streamType, "Video") == 0){
     codec_type = AVMEDIA_TYPE_VIDEO;
     codec_id = instance->pOutputFormat->video_codec;
@@ -267,12 +277,14 @@ void NAVOutputFormat::AddStream(const v8::FunctionCallbackInfo<v8::Value>& args)
 
   AVCodec* pCodec = avcodec_find_encoder(codec_id);
   if (!pCodec) {
-    return ThrowException(Exception::Error(String::New(isolate, "Could not find codec")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not find codec")));
+    return;
   }
 
   AVStream *pStream = avformat_new_stream(instance->pFormatCtx, pCodec);
   if (!pStream) {
-    return ThrowException(Exception::Error(String::New(isolate, "Could not create stream")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not create stream")));
+    return;
   }
   AVCodecContext *pCodecContext = pStream->codec;
   avcodec_get_context_defaults3 (pCodecContext, pCodec);
@@ -308,15 +320,16 @@ void NAVOutputFormat::AddStream(const v8::FunctionCallbackInfo<v8::Value>& args)
   if (avcodec_open2(pCodecContext, pCodec, &pDict) < 0) {
     NAVDictionary::Info(pDict);
     av_dict_free(&pDict);
-    return ThrowException(Exception::Error(String::New(isolate, "Could not open codec")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not open codec")));
+    return;
   }
   av_dict_free(&pDict);
 
-  Local<Array> streams = Local<Array>::Cast(self->Get(String::New(isolate, "streams")));
-  Handle<Value> stream = NAVStream::New(pStream);
+  v8::Local<v8::Array> streams = v8::Local<v8::Array>::Cast(self->Get(String::NewFromUtf8(isolate, "streams")));
+  v8::Local<v8::Value> stream = NAVStream::New(isolate, pStream);
   streams->Set(streams->Length(), stream);
 
-  info.GetReturnValue().Set(stream);
+  args.GetReturnValue().Set(stream);
 }
 
 void NAVOutputFormat::Begin(const v8::FunctionCallbackInfo<v8::Value>& args) {
@@ -339,7 +352,8 @@ void NAVOutputFormat::Begin(const v8::FunctionCallbackInfo<v8::Value>& args) {
       hasAudio = true;
       instance->pFifo = new NAVAudioFifo(pCodecContext);
       if (!instance->pFifo) {
-        return ThrowException(Exception::Error(String::New(isolate, "Could not alloc audio fifo")));
+        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not alloc audio fifo")));
+        return;
       }
     }
   }
@@ -352,7 +366,8 @@ void NAVOutputFormat::Begin(const v8::FunctionCallbackInfo<v8::Value>& args) {
       instance->videoBufferSize = VIDEO_BUFFER_SIZE;
       instance->pVideoBuffer = (uint8_t*) av_malloc(instance->videoBufferSize);
       if (!instance->pVideoBuffer) {
-        return ThrowException(Exception::Error(String::New(isolate, "Could not alloc video buffer")));
+        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not alloc video buffer")));
+        return;
       }
     }
   }
@@ -362,7 +377,8 @@ void NAVOutputFormat::Begin(const v8::FunctionCallbackInfo<v8::Value>& args) {
     av_free(instance->pAudioBuffer);
     instance->pAudioBuffer = (uint8_t*) av_malloc(instance->audioBufferSize);
     if (!instance->pAudioBuffer) {
-      return ThrowException(Exception::Error(String::New(isolate, "Could not alloc audio buffer")));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not alloc audio buffer")));
+      return;
     }
   }
 
@@ -370,13 +386,14 @@ void NAVOutputFormat::Begin(const v8::FunctionCallbackInfo<v8::Value>& args) {
   // open the output file, if needed
   if (!(instance->pOutputFormat->flags & AVFMT_NOFILE)) {
     if (avio_open(&(instance->pFormatCtx->pb), instance->filename, AVIO_FLAG_WRITE) < 0) {
-      return ThrowException(Exception::Error(String::New(isolate, "Could not open output file")));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not open output file")));
+      return;
     }
   }
 
   avformat_write_header(instance->pFormatCtx, NULL);
 
-  return Undefined();
+  args.GetReturnValue().Set(Undefined(isolate));
 }
 
 #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(54, 01, 0)
@@ -538,19 +555,19 @@ static void AsyncAfter(uv_work_t* req) {
   int numArgs = 0;
 
   if (pBaton->error) {
-    err = Exception::Error(String::New(isolate, pBaton->error));
+    err = Exception::Error(String::NewFromUtf8(isolate, pBaton->error));
     argv[0] = err;
     numArgs = 1;
   }
 
   TryCatch try_catch;
-  pBaton->callback->Call(Context::GetCurrent()->Global(), numArgs, argv);
+  v8::Local<v8::Function>::New(isolate, pBaton->callback)->Call(isolate->GetCurrentContext()->Global(), numArgs, argv);
 
   if (try_catch.HasCaught()) {
     node::FatalException(try_catch);
   }
 
-  pBaton->callback.Dispose();
+  pBaton->callback.Reset();
   delete pBaton;
 }
 
@@ -558,7 +575,8 @@ void NAVOutputFormat::Encode(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate *isolate = args.GetIsolate();
 
   if(args.Length()<3){
-    return ThrowException(Exception::TypeError(String::New(isolate, "This Function requires 3 parameters")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "This Function requires 3 parameters")));
+    return;
   }
 
   NAVOutputFormat* instance = UNWRAP_OBJECT(NAVOutputFormat, args);
@@ -577,7 +595,6 @@ void NAVOutputFormat::Encode(const v8::FunctionCallbackInfo<v8::Value>& args) {
   pBaton->pOutputFormat = instance;
 
   pBaton->request.data = pBaton;
-
   pBaton->callback.Reset(isolate, callback);
 
   uv_queue_work(uv_default_loop(),
@@ -585,15 +602,14 @@ void NAVOutputFormat::Encode(const v8::FunctionCallbackInfo<v8::Value>& args) {
                 AsyncWork,
                 (uv_after_work_cb)AsyncAfter);
 
-  info.GetReturnValue().Set(Undefined(isolate));
+  args.GetReturnValue().Set(Undefined(isolate));
 
   //return EncodeFrame(instance, pStream, pFrame);
 }
 
-Handle<Value> NAVOutputFormat::End(const Arguments& args) {
-  HandleScope scope;
-
-  Handle<Value> result;
+void NAVOutputFormat::End(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate *isolate = args.GetIsolate();
+  v8::Local<v8::Value> result;
 
   NAVOutputFormat* instance = UNWRAP_OBJECT(NAVOutputFormat, args);
 
@@ -606,7 +622,8 @@ Handle<Value> NAVOutputFormat::End(const Arguments& args) {
       do {
         (void)instance->EncodeVideoFrame(pStream, NULL, &outSize);
         if(outSize < 0){
-          return ThrowException(Exception::Error(String::New("Error flushing video encoder")));
+          isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error flushing video encoder")));
+          return;
         }
       } while (outSize > 0);
     }
@@ -623,7 +640,8 @@ Handle<Value> NAVOutputFormat::End(const Arguments& args) {
                                       instance->pAudioStream,
                                       pFifoFrame);
       if(ret<0){
-        return ThrowException(Exception::Error(String::New("Error outputing audio frame")));
+        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error outputing audio frame")));
+        return;
       }
     }
   }
@@ -635,5 +653,5 @@ Handle<Value> NAVOutputFormat::End(const Arguments& args) {
     avio_close(instance->pFormatCtx->pb);
   }
 
-  return Undefined();
+  args.GetReturnValue().Set(Undefined(isolate));
 }

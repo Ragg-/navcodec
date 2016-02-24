@@ -42,13 +42,13 @@ void NAVFrame::Init(v8::Isolate *isolate) {
   constructor.Reset(isolate, templ);
 }
 
-Handle<Object> NAVFrame::New(AVFrame *pFrame) {
-  v8::Isolate *isolate = v8::Isolate::GetCurrent();
+v8::Local<v8::Object> NAVFrame::New(v8::Isolate *isolate, AVFrame *pFrame) {
+  //v8::Isolate *isolate = v8::Isolate::GetCurrent();
   v8::EscapableHandleScope scope(isolate);
 
   v8::Local<v8::ObjectTemplate> cons = v8::Local<v8::ObjectTemplate>::New(isolate, constructor);
   NAVFrame *instance = new NAVFrame(pFrame);
-  Handle<Object> obj = cons->NewInstance();
+  v8::Local<v8::Object> obj = cons->NewInstance();
   instance->Wrap(obj);
 
   return scope.Escape(obj);

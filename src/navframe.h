@@ -42,8 +42,7 @@ public:
   static Persistent<ObjectTemplate> constructor;
 
   static void Init(v8::Isolate *isolate);
-
-  static Handle<Object> New(AVFrame *pFrame);
+  static v8::Local<v8::Object> New(v8::Isolate *isolate, AVFrame *pFrame);
 };
 
 #endif //_AVFRAME_H

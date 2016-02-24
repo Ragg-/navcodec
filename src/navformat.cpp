@@ -355,7 +355,7 @@ void NAVFormat::Decode(const v8::FunctionCallbackInfo<v8::Value>& args) {
     streamFrames[i].pStream = pStream;
     streamFrames[i].pFrame = avcodec_alloc_frame();
 
-    Handle<Object> frame = NAVFrame::New(streamFrames[i].pFrame);
+    v8::Local<v8::Object> frame = NAVFrame::New(isolate, streamFrames[i].pFrame);
     streamFrames[i].frame.Reset(isolate, frame);
 
     AVCodecContext *pCodecCtx = streamFrames[i].pStream->codec;

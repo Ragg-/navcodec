@@ -48,7 +48,7 @@ extern "C" { // Cause of name mangling in C++, we use extern C here
 
     target->Set(String::NewFromUtf8(isolate, "AVFormatVersion"), version);
 
-    target->Set(String::NewFromUtf8(isolate, "PixelFormat"), CreatePixelFormatsEnum());
+    target->Set(String::NewFromUtf8(isolate, "PixelFormat"), CreatePixelFormatsEnum(isolate));
     target->Set(String::NewFromUtf8(isolate, "CodecId"), CreateCodecIdEnum());
 
     NAVFormat::Init(target);

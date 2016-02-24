@@ -38,10 +38,10 @@ NAVSws::~NAVSws(){
   sws_freeContext(pContext);
   av_free(pFrameBuffer);
 
-  frame.Dispose();
+  frame.Reset();
 }
 
-Persistent<FunctionTemplate> NAVSws::templ;
+v8::Persistent<v8::Function> NAVSws::constructor;
 
 void NAVSws::Init(Handle<Object> target){
   v8::Isolate *isolate = target->GetIsolate();
@@ -61,23 +61,23 @@ void NAVSws::Init(Handle<Object> target){
 // (srcStream, dstStream | options)
 void NAVSws::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate *isolate = args.GetIsolate();
-  Local<Object> options;
+  v8::Local<v8::Object> options;
 
   NAVSws* instance = new NAVSws();
   instance->Wrap(args.This());
 
   if(args.Length()<2){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameters (srcStream, dstStream | options)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcStream, dstStream | options)")));
+    return;
   }
 
-  Local<Object> stream = Local<Object>::Cast(args[0]);
+  v8::Local<v8::Object> stream = v8::Local<v8::Object>::Cast(args[0]);
   AVStream *pSrcStream = (node::ObjectWrap::Unwrap<NAVStream>(stream))->pContext;
 
-  Local<Object> streamOrOptions = Local<Object>::Cast(args[1]);
-
-  Local<String> codecKey = String::NewFromUtf8(isolate, "codec");
+  v8::Local<v8::Object> streamOrOptions = v8::Local<v8::Object>::Cast(args[1]);
+  v8::Local<v8::String> codecKey = v8::String::NewFromUtf8(isolate, "codec");
   if(streamOrOptions->Has(codecKey)){
-    options = Local<Object>::Cast(streamOrOptions->Get(codecKey));
+    options = v8::Local<v8::Object>::Cast(streamOrOptions->Get(codecKey));
   }else{
     options = streamOrOptions;
   }
@@ -100,14 +100,16 @@ void NAVSws::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
                                         NULL, NULL, NULL // Filters & Params (unused for now)
                                         );
     if(instance->pContext == NULL) {
-      return ThrowException(Exception::TypeError(String::New(isolate, "Could not init conversion context")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not init conversion context")));
+      return;
     }
 
     int frameBufferSize;
 
     instance->pFrame = avcodec_alloc_frame();
     if (!instance->pFrame){
-      return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame")));
+      return;
     }
 
     frameBufferSize = avpicture_get_size(instance->pix_fmt, instance->width, instance->height);
@@ -115,10 +117,11 @@ void NAVSws::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
     instance->pFrameBuffer = (uint8_t*) av_mallocz(frameBufferSize);
     if (!instance->pFrameBuffer ){
       avcodec_free_frame(&instance->pFrame);
-      return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame buffer")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame buffer")));
+      return;
     }
 
-    instance->frame.Reset(isolate, NAVFrame::New(instance->pFrame));
+    instance->frame.Reset(isolate, NAVFrame::New(isolate, instance->pFrame));
     instance->passthrough = false;
   }
 
@@ -131,7 +134,8 @@ void NAVSws::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Local<Object> srcFrame;
 
   if(args.Length()<1){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameters (srcFrame)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcFrame)")));
+    return;
   }
   srcFrame = Local<Array>::Cast(args[0]);
 
@@ -140,7 +144,8 @@ void NAVSws::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
   // TODO: check that src frame is really compatible with this converter.
 
   if(instance->passthrough){
-    return srcFrame;
+    args.GetReturnValue().Set(srcFrame);
+    return;
   } else {
     AVFrame *pSrcFrame = (node::ObjectWrap::Unwrap<NAVFrame>(srcFrame))->pContext;
 
@@ -163,7 +168,8 @@ void NAVSws::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
                         instance->pFrame->data,
                         instance->pFrame->linesize);
     if(ret==0) {
-      return ThrowException(Exception::TypeError(String::New(isolate, "Failed frame conversion")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Failed frame conversion")));
+      return;
     }
 
     instance->pFrame->pts = pSrcFrame->pts;
