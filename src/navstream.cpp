@@ -61,7 +61,7 @@ v8::Local<v8::Object> NAVStream::New(v8::Isolate *isolate, AVStream *pStream) {
   duration = duration < 0? -1 : duration;
 
   SET_KEY_VALUE(obj, "duration", Number::New(isolate, duration));
-  SET_KEY_VALUE(obj, "metadata", NAVDictionary::New(pStream->metadata));
+  SET_KEY_VALUE(obj, "metadata", NAVDictionary::New(isolate, pStream->metadata));
   SET_KEY_VALUE(obj, "numFrames", Integer::New(isolate, pStream->nb_frames));
 
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(52, 42, 0)

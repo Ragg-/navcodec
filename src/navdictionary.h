@@ -24,6 +24,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -33,17 +34,17 @@ extern "C" {
 
 using namespace v8;
 
-class NAVDictionary : node::ObjectWrap{
+class NAVDictionary : public node::ObjectWrap {
 public:
 
   NAVDictionary();
   ~NAVDictionary();
-  
-  static Persistent<ObjectTemplate> templ;
-  
-  static void Init();
-  static Handle<Object> New(AVDictionary *pDictionary);
-  static AVDictionary *New(Handle<Object> obj);
+
+  static v8::Persistent<v8::ObjectTemplate> constructor;
+
+  static void Init(v8::Isolate *isolate);
+  static v8::Local<v8::Object> New(v8::Isolate *isolate, AVDictionary *pDictionary);
+  static AVDictionary *New(v8::Local<v8::Object> obj);
   static void Info(AVDictionary *pDictionary);
 };
 

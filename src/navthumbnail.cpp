@@ -49,16 +49,15 @@ void NAVThumbnail::Init(v8::Local<v8::Object> target){
   v8::Isolate *isolate = target->GetIsolate();
 
   // Our constructor
-  Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate,New);
-  tpl = Persistent<FunctionTemplate>::New(templ);
+  Local<FunctionTemplate> tpl = FunctionTemplate::New(isolate, New);
 
   tpl->InstanceTemplate()->SetInternalFieldCount(1); // 1 since this is a constructor function
-  tpl->SetClassName(String::NewSymbol("NAVThumbnail"));
+  tpl->SetClassName(String::NewFromUtf8(isolate, "NAVThumbnail"));
 
   NODE_SET_PROTOTYPE_METHOD(tpl, "write", Write);
 
   constructor.Reset(isolate, tpl->GetFunction());
-  target->Set(String::NewSymbol("NAVThumbnail"), tpl->GetFunction());
+  target->Set(String::NewFromUtf8(isolate, "NAVThumbnail"), tpl->GetFunction());
 }
 
 // (options)
@@ -69,19 +68,22 @@ void NAVThumbnail::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   instance->Wrap(args.This());
 
   if (args.Length() < 1) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameter (srcStream)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameter (srcStream)")));
+    return;
   }
 
   Local<Object> options = Local<Object>::Cast(args[0]);
 
   AVCodec *pCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
 	if (!pCodec) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "Could not alloc codec")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not alloc codec")));
+    return;
 	}
 
   instance->pContext = avcodec_alloc_context3(pCodec);
 	if (!instance->pContext) {
-		return ThrowException(Exception::TypeError(String::New(isolate, "Could not alloc codec context")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not alloc codec context")));
+		return;
 	}
 
 	instance->pContext->width = GET_OPTION_UINT32(options, width, 128);
@@ -95,7 +97,8 @@ void NAVThumbnail::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
 	if (avcodec_open2(instance->pContext, pCodec, &pDict) < 0) {
     av_dict_free(&pDict);
     delete instance;
-    return ThrowException(Exception::TypeError(String::New(isolate, "Could not open codec")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not open codec")));
+    return;
 	}
   av_dict_free(&pDict);
 
@@ -105,10 +108,11 @@ void NAVThumbnail::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	instance->pBuffer = (uint8_t *) av_mallocz(instance->bufferSize);
   if (instance->pBuffer == NULL){
-    return ThrowException(Exception::Error(String::New(isolate, "Error allocating buffer")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error allocating buffer")));
+    return;
   }
 
-  return args.This();
+  args.GetReturnValue().Set(args.This());
 }
 
 // (frame, filename, cb(err))
@@ -119,7 +123,8 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Local<Function> callback;
 
   if (args.Length() < 3) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameters (frame, filename, cb)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (frame, filename, cb)")));
+    return;
   }
   frame = Local<Array>::Cast(args[0]);
 
@@ -129,7 +134,8 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
   char *filename = *v8str;
 
   if(!(args[2]->IsFunction())){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Third parameter must be a function")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Third parameter must be a function")));
+    return;
   }
 
   callback = Local<Function>::Cast(args[2]);
@@ -147,13 +153,15 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   int gotPacket;
   if(avcodec_encode_video2(instance->pContext, &packet, pFrame, &gotPacket) < 0){
-    return ThrowException(Exception::Error(String::New(isolate, "Error encoding thumbnail")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error encoding thumbnail")));
+    return;
   }
   int encodedSize = packet.size;
 
 	FILE *fileHandle = fopen(filename, "wb");
   if(fileHandle == NULL){
-    return ThrowException(Exception::Error(String::New(isolate, "Error opening thumbnail file")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error opening thumbnail file")));
+    return;
   }
 
 	int ret = fwrite(instance->pBuffer, 1, encodedSize, fileHandle);
@@ -161,12 +169,12 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   // TODO: Make asynchronous
   if (ret < encodedSize) {
-    Local<Value> err = Exception::Error(String::New(isolate, "Error writing thumbnail"));
+    Local<Value> err = Exception::Error(String::NewFromUtf8(isolate, "Error writing thumbnail"));
     Local<Value> argv[] = { err };
-    callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    callback->Call(isolate->GetCurrentContext()->Global(), 1, argv);
   } else {
-    Local<Value> argv[] = { Local<Value>::New(Null()) };
-    callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    Local<Value> argv[] = { Null(isolate) };
+    callback->Call(isolate->GetCurrentContext()->Global(), 1, argv);
   }
 
   args.GetReturnValue().Set(Undefined(isolate));

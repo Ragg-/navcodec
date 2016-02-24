@@ -37,7 +37,7 @@ extern "C" {
 
 using namespace v8;
 
-class NAVResample : node::ObjectWrap {
+class NAVResample : public node::ObjectWrap {
 private:
   //struct ReSampleContext *pContext;
   AVAudioResampleContext *pContext;

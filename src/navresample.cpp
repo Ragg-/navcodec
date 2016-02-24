@@ -53,7 +53,7 @@ NAVResample::~NAVResample(){
 
   avresample_free(&pContext);
 
-  frame.Dispose();
+  frame.Reset();
 }
 
 v8::Persistent<v8::Function> NAVResample::constructor;
@@ -75,13 +75,14 @@ void NAVResample::Init(v8::Local<v8::Object> target) {
 // (srcStream, dstStream, [options])
 void NAVResample::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate* isolate = args.GetIsolate();
-  Local<Object> self = args.This();
+  v8::Local<v8::Object> self = args.This();
 
   NAVResample* instance = new NAVResample();
   instance->Wrap(self);
 
   if (args.Length() < 2) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameters (srcStream, dstStream)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcStream, dstStream)")));
+    return;
   }
 
   Local<Object> stream = Local<Object>::Cast(args[0]);
@@ -103,7 +104,8 @@ void NAVResample::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
     instance->pContext = avresample_alloc_context();
     if(instance->pContext == NULL) {
-      return ThrowException(Exception::TypeError(String::New(isolate, "Could not init resample context")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not init resample context")));
+      return;
     }
 
     {
@@ -120,16 +122,18 @@ void NAVResample::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
       av_opt_set_int(avr, "out_sample_fmt", pDstCodec->sample_fmt, 0);
 
       if(avresample_open(instance->pContext)){
-        return ThrowException(Exception::TypeError(String::New(isolate, "Could not open resampler")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not open resampler")));
+        return;
       }
     }
 
     instance->pFrame = avcodec_alloc_frame();
     if (!instance->pFrame){
-      return ThrowException(Exception::TypeError(String::New(isolate, "Error Allocating AVFrame")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame")));
+      return;
     }
 
-    instance->frame.Reset(isolate, NAVFrame::New(instance->pFrame));
+    instance->frame.Reset(isolate, NAVFrame::New(isolate, instance->pFrame));
     instance->passthrough = false;
   }
 
@@ -144,14 +148,15 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Handle<Object> dstFrame;
 
   if(args.Length()<1){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input parameters (srcFrame)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcFrame)")));
+    return;
   }
   srcFrame = Local<Array>::Cast(args[0]);
 
   NAVResample* instance = UNWRAP_OBJECT(NAVResample, args);
 
   if(instance->passthrough){
-    return srcFrame;
+    args.GetReturnValue().Set(srcFrame);
   } else {
     AVFrame *pSrcFrame = (node::ObjectWrap::Unwrap<NAVFrame>(srcFrame))->pContext;
 
@@ -183,7 +188,8 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
                        pCodecContext->sample_fmt,
                        1);
       if(output == NULL) {
-        return ThrowException(Exception::TypeError(String::New(isolate, "Failed allocating output samples buffer")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Failed allocating output samples buffer")));
+        return;
       }
 
       nb_samples = avresample_convert(avr,
@@ -208,7 +214,8 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
       if(ret<0) {
         fprintf(stderr, "avcodec_fill_audio_frame returned %i\n", ret);
-        return ThrowException(Exception::TypeError(String::New(isolate, "Failed filling frame")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Failed filling frame")));
+        return;
       }
       av_freep(&output);
     }

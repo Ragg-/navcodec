@@ -32,6 +32,6 @@ extern "C" {
 
 using namespace v8;
 
-Handle<Object> CreateCodecIdEnum();
+v8::Local<v8::Object> CreateCodecIdEnum(v8::Isolate *isolate);
 
 #endif // _NAV_CODEC_ID_H

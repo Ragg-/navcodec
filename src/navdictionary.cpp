@@ -24,48 +24,47 @@
 
 using namespace v8;
 
-Persistent<ObjectTemplate> NAVDictionary::templ;
+Persistent<ObjectTemplate> NAVDictionary::constructor;
 
 NAVDictionary::NAVDictionary(){
 }
-  
+
 NAVDictionary::~NAVDictionary(){
 }
-  
-void NAVDictionary::Init(){
-  HandleScope scope;
-  
-  Local<ObjectTemplate> templ = ObjectTemplate::New();
-  templ->SetInternalFieldCount(1);
-  
-  NAVDictionary::templ = Persistent<ObjectTemplate>::New(templ);
+
+void NAVDictionary::Init(v8::Isolate *isolate) {
+  v8::Local<v8::ObjectTemplate> tpl = ObjectTemplate::New(isolate);
+  tpl->SetInternalFieldCount(1);
+
+  constructor.Reset(isolate, tpl);
 }
-  
-Handle<Object> NAVDictionary::New(AVDictionary *pDictionary) {
-  HandleScope scope;
-  
+
+v8::Local<v8::Object> NAVDictionary::New(v8::Isolate *isolate, AVDictionary *pDictionary) {
+  v8::EscapableHandleScope scope(isolate);
+
   NAVDictionary *instance = new NAVDictionary();
 
-  Handle<Object> obj = NAVDictionary::templ->NewInstance();
+  v8::Local<v8::ObjectTemplate> cons = v8::Local<v8::ObjectTemplate>::New(isolate, constructor);
+  Handle<Object> obj = cons->NewInstance();
   instance->Wrap(obj);
-  
+
   AVDictionaryEntry *tag = NULL;
   while ((tag = av_dict_get(pDictionary, "", tag, AV_DICT_IGNORE_SUFFIX))){
-    SET_KEY_VALUE(obj, tag->key, String::New(tag->value));
+    SET_KEY_VALUE(obj, tag->key, String::NewFromUtf8(isolate, tag->value));
   }
-    
-  return scope.Close(obj);
+
+  return scope.Escape(obj);
 }
 
-AVDictionary *NAVDictionary::New(Handle<Object> obj){
-  HandleScope scope;
-  
+AVDictionary *NAVDictionary::New(v8::Local<v8::Object> obj){
+  v8::Isolate *isolate = v8::Isolate::GetCurrent();
+
   AVDictionary *pDict = NULL;
 
   Local<Array> properties = obj->GetOwnPropertyNames();
   unsigned int length = properties->Length();
   for(unsigned int i=0; i<length; i++){
-    Local<Value> key = properties->Get(Integer::New(i));
+    Local<Value> key = properties->Get(Integer::New(isolate, i));
     Local<Value> value = obj->Get(key);
 
     String::Utf8Value utf8Key(key);
@@ -83,6 +82,3 @@ void NAVDictionary::Info(AVDictionary *pDictionary) {
     }
   }
 }
-
-
-

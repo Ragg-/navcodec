@@ -49,7 +49,7 @@ extern "C" { // Cause of name mangling in C++, we use extern C here
     target->Set(String::NewFromUtf8(isolate, "AVFormatVersion"), version);
 
     target->Set(String::NewFromUtf8(isolate, "PixelFormat"), CreatePixelFormatsEnum(isolate));
-    target->Set(String::NewFromUtf8(isolate, "CodecId"), CreateCodecIdEnum());
+    target->Set(String::NewFromUtf8(isolate, "CodecId"), CreateCodecIdEnum(isolate));
 
     NAVFormat::Init(target);
     NAVOutputFormat::Init(target);
@@ -63,7 +63,7 @@ extern "C" { // Cause of name mangling in C++, we use extern C here
     NAVFrame::Init(isolate);
     NAVStream::Init(isolate);
     NAVCodecContext::Init(isolate);
-    NAVDictionary::Init();
+    NAVDictionary::Init(isolate);
 
     DecoderNotifier::Init(isolate);
   }

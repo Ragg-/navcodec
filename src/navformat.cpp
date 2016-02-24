@@ -312,7 +312,7 @@ void NAVFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
     SET_KEY_VALUE(self, "duration", Number::New(isolate, pFormatCtx->duration / (float) AV_TIME_BASE));
   }
 
-  SET_KEY_VALUE(self, "metadata", NAVDictionary::New(pFormatCtx->metadata));
+  SET_KEY_VALUE(self, "metadata", NAVDictionary::New(isolate, pFormatCtx->metadata));
 
   args.GetReturnValue().Set(self);
 }

@@ -325,24 +325,26 @@ static void AsyncAfter(uv_work_t* req) {
   v8::Isolate *isolate = v8::Isolate::GetCurrent();
   Baton* baton = static_cast<Baton*>(req->data);
 
+  v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, baton->callback);
+
   if (baton->error) {
-    Local<Value> err = Exception::Error(String::New(isolate, baton->error));
+    Local<Value> err = Exception::Error(String::NewFromUtf8(isolate, baton->error));
     Local<Value> argv[] = { err };
 
     TryCatch try_catch;
-    baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
 
     if (try_catch.HasCaught()) {
       node::FatalException(try_catch);
     }
   } else {
-    Local<Value> argv[] = { Local<Value>::New(Null(isolate)) };
-    baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    Local<Value> argv[] = { Null(isolate) };
+    cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
   }
 
   free(baton->input);
   free(baton->output);
-  baton->callback.Dispose();
+  baton->callback.Reset();
   delete baton;
 }
 
@@ -356,19 +358,22 @@ void RelocateMoov(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate *isolate = args.GetIsolate();
 
   if(args.Length()<3){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing arguments (input, output, cb)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing arguments (input, output, cb)")));
+    return;
   }
 
   if (!args[2]->IsFunction()) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "Callback function required")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Callback function required")));
+    return;
   }
   Local<Function> callback = Local<Function>::Cast(args[2]);
 
-  String::Utf8Value v8input(isolate, args[0]);
-  String::Utf8Value v8output(isolate, args[1]);
+  String::Utf8Value v8input(args[0]);
+  String::Utf8Value v8output(args[1]);
 
   if (!strcmp(*v8input, *v8output)) {
-    return ThrowException(Exception::TypeError(String::New(isolate, "input and output files need to be different")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "input and output files need to be different")));
+    return;
   }
 
   Baton* baton = new Baton();
