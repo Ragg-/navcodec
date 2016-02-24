@@ -60,12 +60,12 @@ extern "C" { // Cause of name mangling in C++, we use extern C here
     target->Set(String::NewFromUtf8(isolate, "relocateMoov"), FunctionTemplate::New(isolate, RelocateMoov)->GetFunction());
 
     // Objects only instantiable from C++
-    NAVFrame::Init();
+    NAVFrame::Init(isolate);
     NAVStream::Init(isolate);
-    NAVCodecContext::Init();
+    NAVCodecContext::Init(isolate);
     NAVDictionary::Init();
 
-    DecoderNotifier::Init();
+    DecoderNotifier::Init(isolate);
   }
   NODE_MODULE(navcodec, init);
 }

@@ -26,6 +26,8 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
+#include <uv.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -44,10 +46,9 @@ public:
   NAVFormat();
   ~NAVFormat();
 
-  static Persistent<FunctionTemplate> constructor;
+  static Persistent<Function> constructor;
 
   static void Init(v8::Local<v8::Object> target);
-
   static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   // ([streams], cb(stream, frame))
@@ -70,9 +71,9 @@ public:
 
   static Persistent<ObjectTemplate> constructor;
 
-  static void Init();
+  static void Init(v8::Isolate *isolate);
 
-  static void New(Baton *pBaton);
+  static v8::Local<v8::Object> New(Baton *pBaton);
   static void Done(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 

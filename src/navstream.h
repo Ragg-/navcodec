@@ -45,8 +45,8 @@ public:
 
   static void Init(v8::Isolate *isolate);
 
-  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
-  static void New(AVStream *pStream);
+  //static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static v8::Local<v8::Object> New(v8::Isolate *isolate, AVStream *pStream);
 };
 
 #endif //_NAVSTREAM_H

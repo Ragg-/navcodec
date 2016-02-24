@@ -130,13 +130,13 @@ static void AsyncWork(uv_work_t* req) {
 static void CleanUp(Baton *pBaton){
   for(unsigned int i=0;i<pBaton->numStreams; i++){
     avcodec_close(pBaton->streamFrames[i].pStream->codec);
-    pBaton->streamFrames[i].stream.Dispose();
-    pBaton->streamFrames[i].frame.Dispose();
+    pBaton->streamFrames[i].stream.Reset();
+    pBaton->streamFrames[i].frame.Reset();
   }
 
-  pBaton->navformat.Dispose();
-  pBaton->callback.Dispose();
-  pBaton->notifier.Dispose();
+  pBaton->navformat.Reset();
+  pBaton->callback.Reset();
+  pBaton->notifier.Reset();
   delete pBaton;
 }
 
@@ -144,12 +144,14 @@ static void AsyncAfter(uv_work_t* req) {
   v8::Isolate *isolate = v8::Isolate::GetCurrent();
   Baton* pBaton = static_cast<Baton*>(req->data);
 
+  v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, pBaton->callback);
+
   if (pBaton->error) {
-    Local<Value> err = Exception::Error(String::New(isolate, pBaton->error));
+    Local<Value> err = Exception::Error(String::NewFromUtf8(isolate, pBaton->error));
     Local<Value> argv[] = { err };
 
     //TryCatch try_catch;
-    pBaton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
 
     /*
     if (try_catch.HasCaught()) {
@@ -164,16 +166,16 @@ static void AsyncAfter(uv_work_t* req) {
 
       // Call callback with decoded frame
       Handle<Value> argv[] = {
-        pBaton->streamFrames[i].stream,
-        pBaton->streamFrames[i].frame,
-        Integer::New(pBaton->pFormatCtx->pb->pos),
-        pBaton->notifier
+        v8::Local<v8::Object>::New(isolate, pBaton->streamFrames[i].stream),
+        v8::Local<v8::Object>::New(isolate, pBaton->streamFrames[i].frame),
+        Integer::New(isolate, pBaton->pFormatCtx->pb->pos),
+        v8::Local<v8::Object>::New(isolate, pBaton->notifier)
       };
 
-      pBaton->callback->Call(Context::GetCurrent()->Global(), 4, argv);
+      cb->Call(isolate->GetCurrentContext()->Global(), 4, argv);
     }else{
-      Local<Value> argv[] = { Local<Value>::New(Null()) };
-      pBaton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+      Local<Value> argv[] = { Null(isolate) };
+      cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
 
       // Close all the codecs from the given streams & dispose V8 objects
      CleanUp(pBaton);
@@ -193,28 +195,30 @@ DecoderNotifier::~DecoderNotifier(){
   printf("DecoderNotifier destructor\n");
 }
 
-void DecoderNotifier::Init() {
-  v8::Local<v8::ObjectTemplate> tpl = v8::ObjectTemplate::New();
+void DecoderNotifier::Init(v8::Isolate *isolate) {
+  v8::Local<v8::ObjectTemplate> tpl = v8::ObjectTemplate::New(isolate);
   tpl->SetInternalFieldCount(1);
 
-  DecoderNotifier::templ = Persistent<ObjectTemplate>::New(tpl);
+  constructor.Reset(isolate, tpl);
 }
 
-Handle<Object> DecoderNotifier::New(Baton *pBaton) {
-  HandleScope scope;
+v8::Local<v8::Object> DecoderNotifier::New(Baton *pBaton) {
+  v8::Isolate *isolate = v8::Isolate::GetCurrent();
+  v8::EscapableHandleScope scope(isolate);
 
   DecoderNotifier *instance = new DecoderNotifier(pBaton);
 
-  Handle<Object> obj = DecoderNotifier::templ->NewInstance();
+  v8::Local<v8::ObjectTemplate> cons = v8::Local<v8::ObjectTemplate>::New(isolate, constructor);
+  v8::Local<v8::Object> obj = cons->NewInstance();
   instance->Wrap(obj);
 
-  SET_KEY_VALUE(obj, "done", FunctionTemplate::New(Done)->GetFunction());
+  SET_KEY_VALUE(obj, "done", v8::FunctionTemplate::New(isolate, Done)->GetFunction());
 
-  return scope.Close(obj);
+  return scope.Escape(obj);
 }
 
-Handle<Value> DecoderNotifier::Done(const Arguments& args) {
-  HandleScope scope;
+void DecoderNotifier::Done(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate *isolate = args.GetIsolate();
 
   DecoderNotifier* obj = ObjectWrap::Unwrap<DecoderNotifier>(args.This());
 
@@ -226,7 +230,7 @@ Handle<Value> DecoderNotifier::Done(const Arguments& args) {
                   (uv_after_work_cb)AsyncAfter);
   }
 
-  return Undefined();
+  args.GetReturnValue().Set(v8::Undefined(isolate));
 }
 
 //-------------------------------------------------------------------------------------------
@@ -242,7 +246,7 @@ NAVFormat::~NAVFormat(){
   free(filename);
 }
 
-v8::Persistent<v8::FunctionTemplate> NAVFormat::constructor;
+v8::Persistent<v8::Function> NAVFormat::constructor;
 
 void NAVFormat::Init(v8::Local<v8::Object> target) {
   v8::Isolate *isolate = target->GetIsolate();
@@ -253,15 +257,15 @@ void NAVFormat::Init(v8::Local<v8::Object> target) {
   tpl->InstanceTemplate()->SetInternalFieldCount(1); // 1 since this is a constructor function
   tpl->SetClassName(String::NewFromUtf8(isolate, "NAVFormat"));
 
-  NODE_SET_PROTOTYPE_METHOD(NAVFormat::templ, "dump", Dump);
-  NODE_SET_PROTOTYPE_METHOD(NAVFormat::templ, "decode", Decode);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "dump", Dump);
+  NODE_SET_PROTOTYPE_METHOD(tpl, "decode", Decode);
 
   // Binding our constructor function to the target variable
   constructor.Reset(isolate, tpl->GetFunction());
-  target->Set(String::NewFromUtf8(isolate, "NAVFormat"), constructor->GetFunction());
+  target->Set(String::NewFromUtf8(isolate, "NAVFormat"), tpl->GetFunction());
 }
 
-Handle<Value> NAVFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
+void NAVFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   v8::Isolate *isolate = args.GetIsolate();
   AVFormatContext *pFormatCtx;
 
@@ -273,32 +277,36 @@ Handle<Value> NAVFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   instance->Wrap(self);
 
   if(args.Length() < 1){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Missing input filename")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input filename")));
+    return;
   }
 
-  String::Utf8Value v8str(isolate, args[0]);
+  String::Utf8Value v8str(args[0]);
   instance->filename = strdup(*v8str);
   if(instance->filename == NULL){
-    return ThrowException(Exception::Error(String::New(isolate, "Error allocating filename string")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error allocating filename string")));
+    return;
   }
 
   int ret = avformat_open_input(&(instance->pFormatCtx), instance->filename, NULL, NULL);
   if(ret<0){
-    return ThrowException(Exception::Error(String::New(isolate, "Error Opening Intput")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error Opening Intput")));
+    return;
   }
 
   pFormatCtx = instance->pFormatCtx;
 
   ret = avformat_find_stream_info(pFormatCtx, NULL);
   if(ret<0){
-    return ThrowException(Exception::Error(String::New(isolate, "Error Finding Streams")));
+    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error Finding Streams")));
+    return;
   }
 
   if(pFormatCtx->nb_streams>0){
     Handle<Array> streams = Array::New(isolate, pFormatCtx->nb_streams);
     for(unsigned int i=0; i < pFormatCtx->nb_streams;i++){
       AVStream *stream = pFormatCtx->streams[i];
-      streams->Set(i, NAVStream::New(stream));
+      streams->Set(i, NAVStream::New(isolate, stream));
     }
     SET_KEY_VALUE(self, "streams", streams);
     SET_KEY_VALUE(self, "duration", Number::New(isolate, pFormatCtx->duration / (float) AV_TIME_BASE));
@@ -306,7 +314,7 @@ Handle<Value> NAVFormat::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   SET_KEY_VALUE(self, "metadata", NAVDictionary::New(pFormatCtx->metadata));
 
-  return self;
+  args.GetReturnValue().Set(self);
 }
 
 // ([streams], cb(stream, frame))
@@ -318,10 +326,12 @@ void NAVFormat::Decode(const v8::FunctionCallbackInfo<v8::Value>& args) {
   StreamFrame streamFrames[MAX_NUM_STREAMFRAMES];
 
   if(!(args[0]->IsArray())){
-    return ThrowException(Exception::TypeError(String::New(isolate, "First parameter must be an array")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "First parameter must be an array")));
+    return;
   }
   if(!(args[1]->IsFunction())){
-    return ThrowException(Exception::TypeError(String::New(isolate, "Second parameter must be a funcion")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Second parameter must be a funcion")));
+    return;
   }
 
   Local<Object> self = args.This();
@@ -339,9 +349,8 @@ void NAVFormat::Decode(const v8::FunctionCallbackInfo<v8::Value>& args) {
     AVStream *pStream;
 
     v8::Local<v8::Object> stream = streams->Get(i)->ToObject();
-    streamFrames[i].stream = Persistent<Object>::New(stream);
-
-    pStream = node::ObjectWrap::Unwrap<NAVStream>(streamFrames[i].stream)->pContext;
+    streamFrames[i].stream.Reset(isolate, stream);
+    pStream = node::ObjectWrap::Unwrap<NAVStream>(stream)->pContext;
 
     streamFrames[i].pStream = pStream;
     streamFrames[i].pFrame = avcodec_alloc_frame();
@@ -352,11 +361,13 @@ void NAVFormat::Decode(const v8::FunctionCallbackInfo<v8::Value>& args) {
     AVCodecContext *pCodecCtx = streamFrames[i].pStream->codec;
     AVCodec *pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
     if (pCodec == NULL) {
-      return ThrowException(Exception::Error(String::New(isolate, "Could not find decoder!")));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not find decoder!")));
+      return;
     }
 
     if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
-      return ThrowException(Exception::Error(String::New(isolate, "Could not open decoder!")));
+      isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Could not open decoder!")));
+      return;
     }
   }
 
