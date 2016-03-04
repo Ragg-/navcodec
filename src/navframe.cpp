@@ -31,8 +31,7 @@ NAVFrame::NAVFrame(AVFrame *pFrame){
   
 NAVFrame::~NAVFrame(){
   printf("NAVFrame destructor\n");
-  //av_free(pContext);
-  avcodec_free_frame(&pContext);
+  av_frame_free(&pContext);
 }
   
 void NAVFrame::Init(){

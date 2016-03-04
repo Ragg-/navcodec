@@ -127,7 +127,7 @@ Handle<Value> NAVResample::New(const Arguments& args) {
       }
     }
     
-    instance->pFrame = avcodec_alloc_frame();
+    instance->pFrame = av_frame_alloc();
     if (!instance->pFrame){
       return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame")));
     }
@@ -159,7 +159,7 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
   
     AVCodecContext *pCodecContext = instance->pDstStream->codec;
     
-    avcodec_get_frame_defaults(instance->pFrame);
+    instance->pFrame = av_frame_alloc();
     
     instance->pFrame->quality = 1;
     instance->pFrame->pts = pSrcFrame->pts;
@@ -215,8 +215,6 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
       av_freep(&output);
     }
   
-    instance->pFrame->owner = instance->pDstStream->codec;
-    
     return instance->frame;
   }
 }

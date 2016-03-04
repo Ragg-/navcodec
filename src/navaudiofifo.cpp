@@ -8,11 +8,10 @@ int NAVAudioFifo::resetFrame(int size){
     av_freep(&(pOutFrame->extended_data));
   }
   
-  avcodec_get_frame_defaults(pOutFrame);
+  pOutFrame = av_frame_alloc();
   pOutFrame->quality = 1;
   
   pOutFrame->format = pEncoder->sample_fmt;
-  pOutFrame->owner = pEncoder;
   
   pOutFrame->nb_samples = size / (pEncoder->channels * outputSampleSize);
   
@@ -37,7 +36,7 @@ NAVAudioFifo::NAVAudioFifo(AVCodecContext *pEncoder){
     
   frameBytesSize = pEncoder->frame_size * pEncoder->channels * outputSampleSize;
     
-  pOutFrame = avcodec_alloc_frame();
+  pOutFrame = av_frame_alloc();
   pOutFrame->extended_data = NULL;
     
   pFrameData = (uint8_t*) av_malloc(frameBytesSize);
@@ -57,32 +56,33 @@ NAVAudioFifo::~NAVAudioFifo(){
 }
   
 int NAVAudioFifo::put(AVFrame *pFrame){
-  int ret;
+    #warning implement me!
+  // int ret;
   
-  AVCodecContext *pDecoder = pFrame->owner;
+  // AVCodecContext *pDecoder = pFrame->owner;
   
-  int sampleSize = av_get_bytes_per_sample(pDecoder->sample_fmt);
+  // int sampleSize = av_get_bytes_per_sample(pDecoder->sample_fmt);
   
-  int dataSize = pFrame->nb_samples * pDecoder->channels * sampleSize;
-  int space = av_fifo_space(pFifo);
+  // int dataSize = pFrame->nb_samples * pDecoder->channels * sampleSize;
+  // int space = av_fifo_space(pFifo);
     
-  if(space < dataSize){
-    ret = av_fifo_realloc2(pFifo, capacity+(dataSize-space));
-    if(ret<0){
-      return ret;
-    }
-  }
+  // if(space < dataSize){
+  //   ret = av_fifo_realloc2(pFifo, capacity+(dataSize-space));
+  //   if(ret<0){
+  //     return ret;
+  //   }
+  // }
     
-  ret = av_fifo_generic_write(pFifo, pFrame->data[0], dataSize, NULL);
-  if(ret<dataSize){
-    return -1;
-  }
-  /*
-  printf("IN FIFO:%i\n", av_fifo_size(pFifo));
-  printf("NUM SAMPLES:%i\n", pFrame->nb_samples);
-  printf("SAMPLE SIZE:%i\n", sampleSize);
-  printf("DATA SIZE:%i\n", dataSize);
-  */
+  // ret = av_fifo_generic_write(pFifo, pFrame->data[0], dataSize, NULL);
+  // if(ret<dataSize){
+  //   return -1;
+  // }
+  // /*
+  // printf("IN FIFO:%i\n", av_fifo_size(pFifo));
+  // printf("NUM SAMPLES:%i\n", pFrame->nb_samples);
+  // printf("SAMPLE SIZE:%i\n", sampleSize);
+  // printf("DATA SIZE:%i\n", dataSize);
+  // */
   return 0;
 }
   

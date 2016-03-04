@@ -37,7 +37,6 @@ using namespace v8;
 void dumpFrame( AVCodecContext *pCodecContext, AVFrame *pFrame){
   printf("pts:%llu\n", pFrame->pts);
   printf("quality:%i\n", pFrame->quality);
-  printf("type:%i\n", pFrame->type);
   printf("nb_samples:%i\n", pFrame->nb_samples);
   printf("format:%i\n", pFrame->format);
   
@@ -212,9 +211,9 @@ Handle<Value> NAVOutputFormat::New(const Arguments& args) {
   return self;
 }
 
-static PixelFormat get_pix_fmt(AVCodec *pCodec, PixelFormat pix_fmt){
+static AVPixelFormat get_pix_fmt(AVCodec *pCodec, AVPixelFormat pix_fmt){
   if(pCodec->pix_fmts){
-    const PixelFormat *pFormats = pCodec->pix_fmts;
+    const AVPixelFormat *pFormats = pCodec->pix_fmts;
     while(*pFormats != -1){
       if(*pFormats == pix_fmt){
         return pix_fmt;
@@ -280,7 +279,7 @@ Handle<Value> NAVOutputFormat::AddStream(const Arguments& args) {
   AVCodecContext *pCodecContext = pStream->codec;
   avcodec_get_context_defaults3 (pCodecContext, pCodec);
     
-  PixelFormat pix_fmt = (PixelFormat) options->Get(String::NewSymbol("pix_fmt"))->Uint32Value();
+  AVPixelFormat pix_fmt = (AVPixelFormat) options->Get(String::NewSymbol("pix_fmt"))->Uint32Value();
   
   pCodecContext->pix_fmt = get_pix_fmt(pCodec, pix_fmt);
   
@@ -616,19 +615,20 @@ Handle<Value> NAVOutputFormat::End(const Arguments& args) {
   }
   
   if((instance->pFifo) && instance->pFifo->dataLeft()){
-    AVFrame *pFifoFrame;
+      #warning fix me
+    // AVFrame *pFifoFrame;
     
-    pFifoFrame = instance->pFifo->getLast();
-    dumpFrame(pFifoFrame->owner, pFifoFrame);
+    // pFifoFrame = instance->pFifo->getLast();
+    // dumpFrame(pFifoFrame->owner, pFifoFrame);
     
-    if(pFifoFrame->owner->codec->capabilities & CODEC_CAP_SMALL_LAST_FRAME){
-      int ret = instance->outputAudio(instance->pFormatCtx, 
-                                      instance->pAudioStream,
-                                      pFifoFrame);
-      if(ret<0){
-        return ThrowException(Exception::Error(String::New("Error outputing audio frame")));
-      }
-    }
+    // if(pFifoFrame->owner->codec->capabilities & CODEC_CAP_SMALL_LAST_FRAME){
+    //   int ret = instance->outputAudio(instance->pFormatCtx, 
+    //                                   instance->pAudioStream,
+    //                                   pFifoFrame);
+    //   if(ret<0){
+    //     return ThrowException(Exception::Error(String::New("Error outputing audio frame")));
+    //   }
+    // }
   }
   
   av_write_trailer(instance->pFormatCtx);

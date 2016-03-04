@@ -99,7 +99,7 @@ static int decodeFrame(AVFormatContext *pFormatCtx,
         default:
           res = -1;
       }
-      av_free_packet(&packet);
+      av_packet_unref(&packet);
       
       if(res<0){
         pBaton->error = "Error decoding frame";
@@ -107,7 +107,6 @@ static int decodeFrame(AVFormatContext *pFormatCtx,
       }
       
       if(finished){
-        streamFrames[i].pFrame->owner = pStream->codec;
         pBaton->streamIndex = i;
         pFrame->pts = packet.pts;
         break;
@@ -347,7 +346,7 @@ Handle<Value> NAVFormat::Decode(const Arguments& args) {
     pStream = node::ObjectWrap::Unwrap<NAVStream>(streamFrames[i].stream)->pContext;
     
     streamFrames[i].pStream = pStream;
-    streamFrames[i].pFrame = avcodec_alloc_frame();
+    streamFrames[i].pFrame = av_frame_alloc();
 
     Handle<Object> frame = NAVFrame::New(streamFrames[i].pFrame);
     

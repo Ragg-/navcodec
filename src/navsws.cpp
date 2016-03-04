@@ -86,7 +86,7 @@ Handle<Value> NAVSws::New(const Arguments& args) {
   
   instance->width = GET_OPTION_UINT32(options, width, 480);
   instance->height = GET_OPTION_UINT32(options, height, 480);
-  instance->pix_fmt = (PixelFormat) GET_OPTION_UINT32(options, pix_fmt, PIX_FMT_YUV420P);
+  instance->pix_fmt = (AVPixelFormat) GET_OPTION_UINT32(options, pix_fmt, AV_PIX_FMT_YUV420P);
   
   if( (pSrcStream->codec->width != instance->width) ||
       (pSrcStream->codec->height != instance->height) ||
@@ -107,7 +107,7 @@ Handle<Value> NAVSws::New(const Arguments& args) {
 
     int frameBufferSize;
   
-    instance->pFrame = avcodec_alloc_frame();
+    instance->pFrame = av_frame_alloc();
     if (!instance->pFrame){
       return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame")));
     }
@@ -116,7 +116,7 @@ Handle<Value> NAVSws::New(const Arguments& args) {
   
     instance->pFrameBuffer = (uint8_t*) av_mallocz(frameBufferSize);
     if (!instance->pFrameBuffer ){
-      avcodec_free_frame(&instance->pFrame);
+      av_frame_free(&instance->pFrame);
       return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame buffer")));
     }
 
@@ -147,7 +147,7 @@ Handle<Value> NAVSws::Convert(const Arguments& args) {
   } else {
     AVFrame *pSrcFrame = (node::ObjectWrap::Unwrap<NAVFrame>(srcFrame))->pContext;
     
-    avcodec_get_frame_defaults(instance->pFrame);
+    instance->pFrame = av_frame_alloc();
     
     avpicture_fill((AVPicture *)instance->pFrame,
                     instance->pFrameBuffer,
