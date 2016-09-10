@@ -33,7 +33,8 @@ extern "C" {
 
 // extern "C" { // Cause of name mangling in C++, we use extern C here
 NAN_MODULE_INIT(init) {
-    Nan::HandleScope scope;
+    Isolate* isolate = Isolate::GetCurrent();
+    v8::HandleScope scope(isolate);
 
     setbuf(stdout, NULL);
 
@@ -41,7 +42,7 @@ NAN_MODULE_INIT(init) {
     av_register_all();
     avformat_network_init();
 
-    v8::Local<v8::Object> version = v8::Object::New();
+    v8::Local<v8::Object> version = v8::Object::New(isolate);
     version->Set(Nan::New("major").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
     version->Set(Nan::New("minor").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
     version->Set(Nan::New("patch").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
@@ -49,8 +50,6 @@ NAN_MODULE_INIT(init) {
     target->Set(Nan::New("AVFormatVersion").ToLocalChecked(), version);
     target->Set(Nan::New("PixelFormat").ToLocalChecked(), CreatePixelFormatsEnum());
     target->Set(Nan::New("CodecId").ToLocalChecked(), CreateCodecIdEnum());
-
-//    Nan::Set(target,
 
     NAVFormat::Init(target);
     NAVOutputFormat::Init(target);

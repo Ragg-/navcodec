@@ -2,11 +2,11 @@
 #define _RELOCATEMOOV_H
 
 #include <v8.h>
-#include <node.h>
+#include <nan.h>
 
 using namespace v8;
 
-Handle<Value> RelocateMoov(const Arguments& args);
+NAN_METHOD(RelocateMoov);
 
 #endif
 

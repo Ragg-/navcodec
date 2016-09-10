@@ -26,6 +26,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <nan.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -34,7 +35,7 @@ extern "C" {
 
 using namespace v8;
 
-class NAVFormat : node::ObjectWrap {
+class NAVFormat : Nan::ObjectWrap {
 private:
   AVFormatContext *pFormatCtx;
   char *filename;
@@ -48,12 +49,12 @@ public:
   
   static void Init(Handle<Object> target);
   
-  static Handle<Value> New(const Arguments& args);
+  static Handle<Value> New(const Nan::NAN_METHOD_ARGS_TYPE &args);
     
   // ([streams], cb(stream, frame))
-  static Handle<Value> Version(const Arguments& args);
-  static Handle<Value> Decode(const Arguments& args);
-  static Handle<Value> Dump(const Arguments& args);
+  static Handle<Value> Version(const Nan::NAN_METHOD_ARGS_TYPE &args);
+  static Handle<Value> Decode(const Nan::NAN_METHOD_ARGS_TYPE &args);
+  static Handle<Value> Dump(const Nan::NAN_METHOD_ARGS_TYPE &args);
 };
 
 
@@ -74,7 +75,7 @@ public:
   static void Init();
   
   static Handle<Object> New(Baton *pBaton);
-  static Handle<Value> Done(const Arguments& args);
+  static Handle<Value> Done(const Nan::NAN_METHOD_ARGS_TYPE &args);
 };
 
 #endif // _NAVFORMAT_H

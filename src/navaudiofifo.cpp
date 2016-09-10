@@ -7,8 +7,8 @@ int NAVAudioFifo::resetFrame(int size){
   if (pOutFrame->extended_data != pOutFrame->data){
     av_freep(&(pOutFrame->extended_data));
   }
-  
-  avcodec_get_frame_defaults(pOutFrame);
+
+//  avcodec_get_frame_defaults(pOutFrame);
   pOutFrame->quality = 1;
   
   pOutFrame->format = pEncoder->sample_fmt;

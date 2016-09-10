@@ -20,6 +20,7 @@
  */
 
 #include <string.h>
+#include <nan.h>
 
 #include "navformat.h"
 #include "navframe.h"
@@ -33,17 +34,17 @@ using namespace v8;
 class DecoderNotifier;
 
 typedef struct {
-  Persistent<Object> stream;
-  Persistent<Object> frame;
+  v8::Persistent<Object> stream;
+  v8::Persistent<Object> frame;
   AVStream *pStream;
   AVFrame *pFrame;
 } StreamFrame;
 
 struct Baton {
   uv_work_t request;
-  Persistent<Object> navformat;
-  Persistent<Function> callback;
-  Persistent<Object> notifier;
+  v8::Persistent<Object> navformat;
+  v8::Persistent<Function> callback;
+  v8::Persistent<Object> notifier;
   
   // Input
   AVFormatContext *pFormatCtx;
@@ -145,7 +146,7 @@ static void AsyncAfter(uv_work_t* req) {
   Baton* pBaton = static_cast<Baton*>(req->data);
   
   if (pBaton->error) {
-    Local<Value> err = Exception::Error(String::New(pBaton->error));
+    Local<Value> err = Exception::Error(Nan::New(pBaton->error));
     Local<Value> argv[] = { err };
     
     //TryCatch try_catch;
@@ -183,7 +184,7 @@ static void AsyncAfter(uv_work_t* req) {
 
 // DecoderNotifyer
 
-Persistent<ObjectTemplate> DecoderNotifier::templ;
+v8::Persistent<ObjectTemplate> DecoderNotifier::templ;
 
 DecoderNotifier::DecoderNotifier(Baton *pBaton){
   this->pBaton = pBaton;
@@ -199,7 +200,7 @@ void DecoderNotifier::Init(){
   Local<ObjectTemplate> templ = ObjectTemplate::New();
   templ->SetInternalFieldCount(1);
   
-  DecoderNotifier::templ = Persistent<ObjectTemplate>::New(templ);
+  DecoderNotifier::templ = v8::Persistent<ObjectTemplate>::New(templ);
 }
 
 Handle<Object> DecoderNotifier::New(Baton *pBaton) {
@@ -215,7 +216,7 @@ Handle<Object> DecoderNotifier::New(Baton *pBaton) {
   return scope.Close(obj);
 }
 
-Handle<Value> DecoderNotifier::Done(const Arguments& args) {
+Handle<Value> DecoderNotifier::Done(const Nan::NAN_METHOD_ARGS_TYPE& args) {
   HandleScope scope;
 
   DecoderNotifier* obj = ObjectWrap::Unwrap<DecoderNotifier>(args.This());
@@ -228,7 +229,7 @@ Handle<Value> DecoderNotifier::Done(const Arguments& args) {
                   (uv_after_work_cb)AsyncAfter);
   }
   
-  return Undefined();
+  return Nan::Undefined();
 }
 
 //-------------------------------------------------------------------------------------------
@@ -244,7 +245,7 @@ NAVFormat::~NAVFormat(){
   free(filename);
 }
 
-Persistent<FunctionTemplate> NAVFormat::templ;
+v8::Persistent<FunctionTemplate> NAVFormat::templ;
 
 void NAVFormat::Init(Handle<Object> target){
   HandleScope scope;
@@ -252,19 +253,19 @@ void NAVFormat::Init(Handle<Object> target){
   // Our constructor
   Local<FunctionTemplate> templ = FunctionTemplate::New(New);
     
-  NAVFormat::templ = Persistent<FunctionTemplate>::New(templ);
+  NAVFormat::templ = v8::Persistent<FunctionTemplate>::New(templ);
     
   NAVFormat::templ->InstanceTemplate()->SetInternalFieldCount(1); // 1 since this is a constructor function
-  NAVFormat::templ->SetClassName(String::NewSymbol("NAVFormat"));
+  NAVFormat::templ->SetClassName(Nan::New("NAVFormat"));
     
   NODE_SET_PROTOTYPE_METHOD(NAVFormat::templ, "dump", Dump);
   NODE_SET_PROTOTYPE_METHOD(NAVFormat::templ, "decode", Decode);
     
   // Binding our constructor function to the target variable
-  target->Set(String::NewSymbol("NAVFormat"), NAVFormat::templ->GetFunction());    
+  target->Set(Nan::New("NAVFormat"), NAVFormat::templ->GetFunction());
 }
 
-Handle<Value> NAVFormat::New(const Arguments& args) {
+Handle<Value> NAVFormat::New(const Nan::NAN_METHOD_ARGS_TYPE& args) {
   HandleScope scope;
   AVFormatContext *pFormatCtx;
   
@@ -276,25 +277,25 @@ Handle<Value> NAVFormat::New(const Arguments& args) {
   instance->Wrap(self);
   
   if(args.Length()<1){
-    return ThrowException(Exception::TypeError(String::New("Missing input filename")));
+    return Nan::ThrowTypeError(Nan::New("Missing input filename")));
   }
   
   String::Utf8Value v8str(args[0]);
   instance->filename = strdup(*v8str);
   if(instance->filename == NULL){
-    return ThrowException(Exception::Error(String::New("Error allocating filename string")));
+    return Nan::ThrowError(Nan::New("Error allocating filename string")));
   }
     
   int ret = avformat_open_input(&(instance->pFormatCtx), instance->filename, NULL, NULL);
   if(ret<0){
-    return ThrowException(Exception::Error(String::New("Error Opening Intput")));
+    return Nan::ThrowError(Nan::New("Error Opening Intput")));
   }
       
   pFormatCtx = instance->pFormatCtx;
       
   ret = avformat_find_stream_info(pFormatCtx, NULL);
   if(ret<0){
-    return ThrowException(Exception::Error(String::New("Error Finding Streams")));
+    return Nan::ThrowError(Nan::New("Error Finding Streams")));
   }
     
   if(pFormatCtx->nb_streams>0){
@@ -313,7 +314,7 @@ Handle<Value> NAVFormat::New(const Arguments& args) {
 }
 
 // ([streams], cb(stream, frame))
-Handle<Value> NAVFormat::Decode(const Arguments& args) {
+Handle<Value> NAVFormat::Decode(const Nan::NAN_METHOD_ARGS_TYPE& args) {
   HandleScope scope;
   Local<Array> streams;
   Local<Function> callback;
@@ -321,10 +322,10 @@ Handle<Value> NAVFormat::Decode(const Arguments& args) {
   StreamFrame streamFrames[MAX_NUM_STREAMFRAMES];
   
   if(!(args[0]->IsArray())){
-    return ThrowException(Exception::TypeError(String::New("First parameter must be an array")));
+    return Nan::ThrowTypeError(Nan::New("First parameter must be an array")));
   }  
   if(!(args[1]->IsFunction())){
-    return ThrowException(Exception::TypeError(String::New("Second parameter must be a funcion")));
+    return Nan::ThrowTypeError(Nan::New("Second parameter must be a funcion")));
   }
   
   Local<Object> self = args.This();
@@ -342,7 +343,7 @@ Handle<Value> NAVFormat::Decode(const Arguments& args) {
     AVStream *pStream;
   
     Handle<Object> stream = streams->Get(i)->ToObject();
-    streamFrames[i].stream = Persistent<Object>::New(stream);
+    streamFrames[i].stream = v8::Persistent<Object>::New(stream);
     
     pStream = node::ObjectWrap::Unwrap<NAVStream>(streamFrames[i].stream)->pContext;
     
@@ -351,17 +352,17 @@ Handle<Value> NAVFormat::Decode(const Arguments& args) {
 
     Handle<Object> frame = NAVFrame::New(streamFrames[i].pFrame);
     
-    streamFrames[i].frame = Persistent<Object>::New(frame);
+    streamFrames[i].frame = v8::Persistent<Object>::New(frame);
     
     AVCodecContext *pCodecCtx = streamFrames[i].pStream->codec;
     
     AVCodec *pCodec=avcodec_find_decoder(pCodecCtx->codec_id);
     if(pCodec==NULL){
-      return ThrowException(Exception::Error(String::New("Could not find decoder!")));
+      return Nan::ThrowError(Nan::New("Could not find decoder!")));
     }
     
     if(avcodec_open2(pCodecCtx, pCodec, NULL)<0){
-      return ThrowException(Exception::Error(String::New("Could not open decoder!")));
+      return Nan::ThrowError(Nan::New("Could not open decoder!")));
     }
   }
   
@@ -371,27 +372,27 @@ Handle<Value> NAVFormat::Decode(const Arguments& args) {
   
   Baton* pBaton = new Baton();
   
-  pBaton->navformat = Persistent<Object>::New(self);
+  pBaton->navformat = v8::Persistent<Object>::New(self);
   pBaton->pFormatCtx = instance->pFormatCtx;
   pBaton->numStreams = streams->Length();
   
   memcpy((void*)&(pBaton->streamFrames), (void*)&streamFrames, sizeof(streamFrames));
   
-  pBaton->notifier = Persistent<Object>::New(DecoderNotifier::New(pBaton));
+  pBaton->notifier = v8::Persistent<Object>::New(DecoderNotifier::New(pBaton));
   
   pBaton->request.data = pBaton;
   
-  pBaton->callback = Persistent<Function>::New(callback);
+  pBaton->callback = v8::Persistent<Function>::New(callback);
   
   uv_queue_work(uv_default_loop(), 
                 &pBaton->request,
                 AsyncWork, 
                 (uv_after_work_cb)AsyncAfter);
 
-  return Undefined();
+  return Nan::Undefined();
 }
 
-Handle<Value> NAVFormat::Dump(const Arguments& args) {
+Handle<Value> NAVFormat::Dump(const Nan::NAN_METHOD_ARGS_TYPE& args) {
   HandleScope scope;
   
   NAVFormat* instance = UNWRAP_OBJECT(NAVFormat, args);

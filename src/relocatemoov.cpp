@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
+#include <nan.h>
 
 #include "relocatemoov.h"
 
@@ -83,7 +84,7 @@
 #define ATOM_PREAMBLE_SIZE    8
 #define COPY_BUFFER_SIZE   16384
 
-struct Baton {
+class Baton : public Nan::AsyncWorker {
   uv_work_t request;
   Persistent<Function> callback;
 
@@ -91,6 +92,18 @@ struct Baton {
   
   char *input;
   char *output;
+
+  public:
+    Baton(Nan::Callback *callback, v8::Local<v8::Promise::Resolver> resolver)
+        : AsyncWorker(callback), resolver(resolver) {}
+    ~Baton();
+
+    void HandleOKCallback() {
+      this->resolver->Resolve();
+    }
+
+  private:
+    v8::Local<v8::Promise::Resolver> resolver;
 };
 
 static void AsyncWork(uv_work_t* req) {
@@ -326,7 +339,7 @@ static void AsyncAfter(uv_work_t* req) {
   Baton* baton = static_cast<Baton*>(req->data);
   
   if (baton->error) {
-    Local<Value> err = Exception::Error(String::New(baton->error));
+    Local<Value> err = Exception::Error(Nan::New(baton->error));
     Local<Value> argv[] = { err };
     
     TryCatch try_catch;
@@ -352,28 +365,36 @@ static void AsyncAfter(uv_work_t* req) {
   RelocateMoov( input, output, cb(err) ) 
 */
 
-Handle<Value> RelocateMoov(const v8::Arguments& args) {
-  HandleScope scope;
+NAN_METHOD(RelocateMoov) {
+  Isolate* isolate = Isolate::GetCurrent();
+  v8::HandleScope scope(isolate);
   
-  if(args.Length()<3){
-    return ThrowException(Exception::TypeError(String::New("Missing arguments (input, output, cb)")));
+  if(info.Length() < 3){
+    Nan::ThrowTypeError("Missing arguments (input, output, cb)");
   }
   
-  if (!args[2]->IsFunction()) {
-    return ThrowException(Exception::TypeError(String::New("Callback function required")));
+  if (info[2]->IsFunction()) {
+    Nan::ThrowTypeError("lol You still use `callback`? It's Promise.");
   }
-  Local<Function> callback = Local<Function>::Cast(args[2]);
-    
-  String::Utf8Value v8input(args[0]);
-  String::Utf8Value v8output(args[1]);
+
+  v8::Local<v8::Promise::Resolver> resolver = v8::Promise::Resolver::New(isolate);
+//  v8::Local<v8::Function> dummyCallback = v8::Script::Compile(
+//    v8::Context::New(isolate),
+//    v8::String::NewFromUtf8(isolate, "()=>{}")
+//  ).ToLocalChecked()->Run()->To;
+//
+  String::Utf8Value v8input(info[0]);
+  String::Utf8Value v8output(info[1]);
   
   if (!strcmp(*v8input, *v8output)) {
-    return ThrowException(Exception::TypeError(String::New("input and output files need to be different")));
+    Nan::ThrowTypeError("input and output files need to be different");
   }
+
+    Nan::AsyncQueueWorker(new Baton(dummyCallback, resolver));
 
   Baton* baton = new Baton();
   baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(callback);  
+  baton->callback = Persistent<Function>::New();
 
   baton->input = strdup(*v8input);
   baton->output = strdup(*v8output);
