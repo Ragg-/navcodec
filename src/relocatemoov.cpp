@@ -352,7 +352,7 @@ static void AsyncAfter(uv_work_t* req) {
   RelocateMoov( input, output, cb(err) ) 
 */
 
-Handle<Value> RelocateMoov(const Arguments& args) {
+Handle<Value> RelocateMoov(const v8::Arguments& args) {
   HandleScope scope;
   
   if(args.Length()<3){

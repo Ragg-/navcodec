@@ -15,10 +15,11 @@
     "node": ">=0.8.0"
   },
   "dependencies": {
-    "underscore": "*",
     "async": "*",
-    "when": "~2.7.0",
-    "printf": "~0.1.2"
+    "nan": "^2.4.0",
+    "printf": "~0.1.2",
+    "underscore": "*",
+    "when": "~2.7.0"
   },
   "devDependencies": {
     "mocha": "*",

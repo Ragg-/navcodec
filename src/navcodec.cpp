@@ -21,51 +21,52 @@
 
 #include "navcodec.h"
 
+#include <nan.h>
 #include <v8.h>
-#include <node.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 }
 
-using namespace v8;
+//using namespace v8;
 
-extern "C" { // Cause of name mangling in C++, we use extern C here
-  static void init(Handle<Object> target) {
-    
+// extern "C" { // Cause of name mangling in C++, we use extern C here
+NAN_MODULE_INIT(init) {
+    Nan::HandleScope scope;
+
     setbuf(stdout, NULL);
-  
+
     // Global initiallization of libavcodec.
     av_register_all();
     avformat_network_init();
-    
-    Handle<Array> version = Array::New(3);
-    version->Set(0, Integer::New(LIBAVFORMAT_VERSION_MAJOR));
-    version->Set(1, Integer::New(LIBAVFORMAT_VERSION_MINOR));
-    version->Set(2, Integer::New(LIBAVFORMAT_VERSION_MICRO));
-    
-    target->Set(String::NewSymbol("AVFormatVersion"), version); 
-    
-    target->Set(String::NewSymbol("PixelFormat"), CreatePixelFormatsEnum());
-    target->Set(String::NewSymbol("CodecId"), CreateCodecIdEnum());
-    
+
+    v8::Local<v8::Object> version = v8::Object::New();
+    version->Set(Nan::New("major").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
+    version->Set(Nan::New("minor").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
+    version->Set(Nan::New("patch").ToLocalChecked(), Nan::New(LIBAVFORMAT_VERSION_MINOR));
+
+    target->Set(Nan::New("AVFormatVersion").ToLocalChecked(), version);
+    target->Set(Nan::New("PixelFormat").ToLocalChecked(), CreatePixelFormatsEnum());
+    target->Set(Nan::New("CodecId").ToLocalChecked(), CreateCodecIdEnum());
+
+//    Nan::Set(target,
+
     NAVFormat::Init(target);
     NAVOutputFormat::Init(target);
     NAVSws::Init(target);
     NAVResample::Init(target);
     NAVThumbnail::Init(target);
-    
-    target->Set(String::NewSymbol("relocateMoov"), FunctionTemplate::New(RelocateMoov)->GetFunction());
-    
+
+    target->Set(Nan::New("relocateMoov").ToLocalChecked(),Nan::New<v8::FunctionTemplate>(RelocateMoov)->GetFunction());
+
     // Objects only instantiable from C++
     NAVFrame::Init();
-    NAVStream::Init();    
+    NAVStream::Init();
     NAVCodecContext::Init();
     NAVDictionary::Init();
-    
+
     DecoderNotifier::Init();
-  }
-  NODE_MODULE(navcodec, init);
 }
 
+NODE_MODULE(navcodec, init);
