@@ -27,8 +27,9 @@ public:
     static v8::Persistent<v8::Function> constructor;
 
     static void Init(const Local<Object> target);
-    static void New(const FunctionCallbackInfo<Value> &args);
 
+    static void New(const FunctionCallbackInfo<Value> &args);
     static void Next(const FunctionCallbackInfo<Value> &args);
+    static void SetMetadata(const FunctionCallbackInfo<Value> &args);
 };
 #endif

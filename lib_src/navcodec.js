@@ -3,6 +3,7 @@ import avconv from './avconv';
 import fs from 'fs-promise';
 import _ from 'underscore';
 import printf from 'printf';
+import Stream from './stream';
 
 const THUMBNAIL_DEFAULTS = {
   pix_fmt:native.PixelFormat.PIX_FMT_YUVJ420P,
@@ -22,8 +23,14 @@ export default class NAVCodec
 
         const stats = await fs.stat(pInput);
         const inputFormat = new native.NAVFormat(pInput);
-        const media = new Media(input, inputFormat, options, stats.size);
-        return media;
+        return new Media(input, inputFormat, options, stats.size);
+    }
+
+    static async openStream(input, options = {})
+    {
+        console.log('wait');
+        const media = await NAVCodec.open(input, options);
+        return new Stream(media);
     }
 
     static async relocateMoov(input, output)

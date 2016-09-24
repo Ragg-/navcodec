@@ -24,11 +24,13 @@ module.exports = {
             {test: /\.js$/, loader: 'babel-loader', exclude: /node_modules/,
              query: {
                 presets: [
-                    'latest',
                     'stage-3',
                     'stage-2',
                 ],
                 plugins: [
+                    'transform-es2015-modules-commonjs',
+                    'transform-class-properties',
+                    'transform-es2015-classes',
                     'add-module-exports',
                 ]
              }},

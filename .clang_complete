@@ -1,0 +1,4 @@
+-I/usr/include
+-I/usr/local/include/libavcodec
+-I/usr/local/include/node
+-I./src
