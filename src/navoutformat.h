@@ -27,6 +27,8 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
+#include <uv.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -36,30 +38,30 @@ extern "C" {
 
 using namespace v8;
 
-class NAVOutputFormat : node::ObjectWrap {
+class NAVOutputFormat : public node::ObjectWrap {
 private:
   AVOutputFormat *pOutputFormat;
 
   char *filename;
-  
+
   uint8_t *pVideoBuffer;
   int videoBufferSize;
 
   uint8_t *pAudioBuffer;
   int audioBufferSize;
   AVStream *pAudioStream;
-  
+
   int64_t videoFrame;
   int32_t skipVideo;
 
 public:
   NAVOutputFormat();
   ~NAVOutputFormat();
-  
+
   // --
   AVFormatContext *pFormatCtx;
   NAVAudioFifo *pFifo;
-  
+
   int outputAudio(AVFormatContext *pFormatContext,
                   AVStream *pStream,
                   AVFrame *pFrame);
@@ -67,27 +69,25 @@ public:
   const char *EncodeVideoFrame(AVStream *pStream,
                                AVFrame *pFrame,
                                int *outSize);
-  
-  static Persistent<FunctionTemplate> templ;
-  
-  static void Init(Handle<Object> target);
-  
-  static Handle<Value> New(const Arguments& args);
-  
-  static Handle<Value> New(AVFormatContext *pContext);
-  
+
+  static Persistent<Function> constructor;
+
+  static void Init(v8::Local<v8::Object> target);
+
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static void New(AVFormatContext *pContext);
+
   // (stream_type::String, [codecId::String])
-  static Handle<Value> AddStream(const Arguments& args);
-  
+  static void AddStream(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // ()
-  static Handle<Value> Begin(const Arguments& args);
-  
+  static void Begin(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // (stream::AVStream, frame::AVFrame)
-  static Handle<Value> Encode(const Arguments& args);
+  static void Encode(const v8::FunctionCallbackInfo<v8::Value>& args);
 
   // ()
-  static Handle<Value> End(const Arguments& args);
-
+  static void End(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif // _NAV_OUTPUT_FORMAT_H

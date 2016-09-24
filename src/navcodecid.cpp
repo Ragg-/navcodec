@@ -22,11 +22,10 @@
 #include "navcodecid.h"
 #include "navutils.h"
 
-Handle<Object> CreateCodecIdEnum(){
-  HandleScope scope;
-  
-  Handle<Object> obj = Object::New();
-  
+v8::Local<v8::Object> CreateCodecIdEnum(v8::Isolate *isolate) {
+  v8::EscapableHandleScope scope(isolate);
+  v8::Local<v8::Object> obj = v8::Object::New(isolate);
+
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_NONE);
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_MPEG1VIDEO);
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_MPEG2VIDEO);
@@ -326,6 +325,6 @@ Handle<Object> CreateCodecIdEnum(){
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_MPEG2TS);
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_MPEG4SYSTEMS);
   OBJECT_SET_ENUM(obj, AV_CODEC_ID_FFMETADATA);
-  
-  return scope.Close(obj);
+
+  return scope.Escape(obj);
 }

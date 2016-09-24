@@ -37,37 +37,36 @@ extern "C" {
 
 using namespace v8;
 
-class NAVResample : node::ObjectWrap {
+class NAVResample : public node::ObjectWrap {
 private:
   //struct ReSampleContext *pContext;
   AVAudioResampleContext *pContext;
-  
+
   AVFrame *pFrame;
-  
-  Persistent<Object> frame;
+
+  v8::Persistent<v8::Object> frame;
 
   uint8_t *pAudioBuffer;
-  
+
   bool passthrough;
-  
+
   AVStream *pSrcStream;
   AVStream *pDstStream;
 
-  
+
 public:
   NAVResample();
   ~NAVResample();
-  
-  static Persistent<FunctionTemplate> templ;
-  
-  static void Init(Handle<Object> target);
-  
+
+  static v8::Persistent<v8::Function> constructor;
+
+  static void Init(v8::Local<v8::Object> target);
+
   // (srcStream, dstStream)
-  static Handle<Value> New(const Arguments& args);
-  
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // (srcFrame) -> dstFrame
-  static Handle<Value> Convert(const Arguments& args);
+  static void Convert(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif // _NAVSWS_H
-

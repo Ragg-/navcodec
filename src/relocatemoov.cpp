@@ -88,14 +88,14 @@ struct Baton {
   Persistent<Function> callback;
 
   const char *error;
-  
+
   char *input;
   char *output;
 };
 
 static void AsyncWork(uv_work_t* req) {
   const char *error = NULL;
-  
+
   FILE *infile  = NULL;
   FILE *outfile = NULL;
   unsigned char atom_bytes[ATOM_PREAMBLE_SIZE];
@@ -113,24 +113,24 @@ static void AsyncWork(uv_work_t* req) {
   uint64_t start_offset = 0;
   unsigned char copy_buffer[COPY_BUFFER_SIZE];
   int bytes_to_copy;
-  
+
   Baton* baton = static_cast<Baton*>(req->data);
-  
+
   infile = fopen(baton->input, "rb");
   if (!infile) {
     error = "Error opening input file";
     goto error_out;
   }
-  
+
   // traverse through the atoms in the file to make sure that 'moov' is
-  // at the end 
+  // at the end
   while (!feof(infile)) {
     if (fread(atom_bytes, ATOM_PREAMBLE_SIZE, 1, infile) != 1) {
       break;
     }
     atom_size = (uint32_t) BE_32(&atom_bytes[0]);
     atom_type = BE_32(&atom_bytes[4]);
-    
+
     // keep ftyp atom
     if (atom_type == FTYP_ATOM) {
       ftyp_atom_size = atom_size;
@@ -140,16 +140,16 @@ static void AsyncWork(uv_work_t* req) {
         error = "Error allocating memory for ftyp atom";
         goto error_out;
       }
-      
+
       fseeko(infile, -ATOM_PREAMBLE_SIZE, SEEK_CUR);
       if (fread(ftyp_atom, atom_size, 1, infile) != 1) {
         error = "Error reading from input file";
         goto error_out;
       }
-      
+
       start_offset = ftello(infile);
     } else {
-      
+
       // 64-bit special case
       if (atom_size == 1) {
         if (fread(atom_bytes, ATOM_PREAMBLE_SIZE, 1, infile) != 1) {
@@ -175,21 +175,21 @@ static void AsyncWork(uv_work_t* req) {
       break;
     }
     atom_offset += atom_size;
-    
+
     // The atom header is 8 (or 16 bytes), if the atom size (which
     // includes these 8 or 16 bytes) is less than that, we won't be
     // able to continue scanning sensibly after this atom, so break.
     if (atom_size < 8)
       break;
   }
-  
+
   if (atom_type != MOOV_ATOM) {
-    error = "last atom in file was not a moov atom\n";    
+    error = "last atom in file was not a moov atom\n";
     goto error_out;
   }
-  
+
   // moov atom was, in fact, the last atom in the chunk; load the whole
-  // moov atom 
+  // moov atom
   fseeko(infile, -atom_size, SEEK_END);
   last_offset    = ftello(infile);
   moov_atom_size = atom_size;
@@ -198,23 +198,23 @@ static void AsyncWork(uv_work_t* req) {
     error = "Error allocating memory for moov atom";
     goto error_out;
   }
-  
+
   if (fread(moov_atom, atom_size, 1, infile) != 1) {
     error = "Error reading from input file";
     goto error_out;
   }
-  
+
   // this utility does not support compressed atoms yet, so disqualify
   // files with compressed QT atoms
   if (BE_32(&moov_atom[12]) == CMOV_ATOM) {
     error = "this utility does not support compressed moov atoms yet\n";
     goto error_out;
   }
-  
+
   // close; will be re-opened later
   fclose(infile);
   infile = NULL;
-  
+
   // crawl through the moov chunk in search of stco or co64 atoms
   for (i = 4; i < moov_atom_size - 4; i++) {
     atom_type = BE_32(&moov_atom[i]);
@@ -256,25 +256,25 @@ static void AsyncWork(uv_work_t* req) {
       i += atom_size - 4;
     }
   }
-  
+
   // re-open the input file and open the output file
   infile = fopen(baton->input, "rb");
   if (!infile) {
     error = "Error opening the input file";
     goto error_out;
   }
-  
+
   if (start_offset > 0) { // seek after ftyp atom
     fseeko(infile, start_offset, SEEK_SET);
     last_offset -= start_offset;
   }
-  
+
   outfile = fopen(baton->output, "wb");
   if (!outfile) {
     error = "Error opening the output file";
     goto error_out;
   }
-  
+
   // dump the same ftyp atom
   if (ftyp_atom_size > 0) {
     if (fwrite(ftyp_atom, ftyp_atom_size, 1, outfile) != 1) {
@@ -282,32 +282,32 @@ static void AsyncWork(uv_work_t* req) {
       goto error_out;
     }
   }
-  
+
   // dump the new moov atom */
   if (fwrite(moov_atom, moov_atom_size, 1, outfile) != 1) {
     error = "Error writing to output file";
     goto error_out;
   }
-  
+
   // copy the remainder of the infile, from offset 0 -> last_offset - 1 */
   while (last_offset) {
     if (last_offset > COPY_BUFFER_SIZE)
       bytes_to_copy = COPY_BUFFER_SIZE;
     else
       bytes_to_copy = last_offset;
-    
+
     if (fread(copy_buffer, bytes_to_copy, 1, infile) != 1) {
       error = "Error reading to input file";
       goto error_out;
     }
-    
+
     if (fwrite(copy_buffer, bytes_to_copy, 1, outfile) != 1) {
       error = "Error writing to output file";
       goto error_out;
     }
     last_offset -= bytes_to_copy;
   }
-  
+
 error_out:
   if (infile){
     fclose(infile);
@@ -317,71 +317,76 @@ error_out:
   }
   free(moov_atom);
   free(ftyp_atom);
-  
+
   baton->error = error;
 }
 
 static void AsyncAfter(uv_work_t* req) {
-  HandleScope scope;
+  v8::Isolate *isolate = v8::Isolate::GetCurrent();
   Baton* baton = static_cast<Baton*>(req->data);
-  
+
+  v8::Local<v8::Function> cb = v8::Local<v8::Function>::New(isolate, baton->callback);
+
   if (baton->error) {
-    Local<Value> err = Exception::Error(String::New(baton->error));
+    Local<Value> err = Exception::Error(String::NewFromUtf8(isolate, baton->error));
     Local<Value> argv[] = { err };
-    
+
     TryCatch try_catch;
-    baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
-    
+    cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
+
     if (try_catch.HasCaught()) {
       node::FatalException(try_catch);
     }
   } else {
-    Local<Value> argv[] = { Local<Value>::New(Null()) };
-    baton->callback->Call(Context::GetCurrent()->Global(), 1, argv);
+    Local<Value> argv[] = { Null(isolate) };
+    cb->Call(isolate->GetCurrentContext()->Global(), 1, argv);
   }
-  
+
   free(baton->input);
   free(baton->output);
-  baton->callback.Dispose();
+  baton->callback.Reset();
   delete baton;
 }
 
 /**
   Realocates the MOOV Chunk in mp4/mov files.
- 
-  RelocateMoov( input, output, cb(err) ) 
+
+  RelocateMoov( input, output, cb(err) )
 */
 
-Handle<Value> RelocateMoov(const Arguments& args) {
-  HandleScope scope;
-  
+void RelocateMoov(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate *isolate = args.GetIsolate();
+
   if(args.Length()<3){
-    return ThrowException(Exception::TypeError(String::New("Missing arguments (input, output, cb)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing arguments (input, output, cb)")));
+    return;
   }
-  
+
   if (!args[2]->IsFunction()) {
-    return ThrowException(Exception::TypeError(String::New("Callback function required")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Callback function required")));
+    return;
   }
   Local<Function> callback = Local<Function>::Cast(args[2]);
-    
+
   String::Utf8Value v8input(args[0]);
   String::Utf8Value v8output(args[1]);
-  
+
   if (!strcmp(*v8input, *v8output)) {
-    return ThrowException(Exception::TypeError(String::New("input and output files need to be different")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "input and output files need to be different")));
+    return;
   }
 
   Baton* baton = new Baton();
   baton->request.data = baton;
-  baton->callback = Persistent<Function>::New(callback);  
+  baton->callback.Reset(isolate, callback);
 
   baton->input = strdup(*v8input);
   baton->output = strdup(*v8output);
-  
-  uv_queue_work(uv_default_loop(), 
+
+  uv_queue_work(uv_default_loop(),
                 &baton->request,
-                AsyncWork, 
+                AsyncWork,
                 (uv_after_work_cb)AsyncAfter);
 
-  return Undefined();
+  args.GetReturnValue().Set(Undefined(isolate));
 }

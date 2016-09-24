@@ -24,6 +24,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -32,49 +33,49 @@ extern "C" {
 
 using namespace v8;
 
-void NoopSet(Local<String> property, Local<Value> value, 
-             const AccessorInfo& info);
+void NoopSet(v8::Local<v8::Value> property, v8::Local<v8::Value> value,
+  const v8::PropertyCallbackInfo<v8::Value>& info);
 
-class NAVCodecContext : node::ObjectWrap {
+class NAVCodecContext : public node::ObjectWrap {
 private:
-  
+
 public:
   AVCodecContext *pContext;
-  
+
   NAVCodecContext(AVCodecContext *pContext);
   ~NAVCodecContext();
-  
-  static Persistent<ObjectTemplate> templ;
-  
-  static void Init();
-  
-  static Handle<Object> New(AVCodecContext *pContext);
-  
-  static Handle<Value> Open(const Arguments& args);
-  
-  static Handle<Value> GetType(Local<String> property, 
-                               const AccessorInfo& info);
-  
-  static Handle<Value> GetWidth(Local<String> property, 
-                                const AccessorInfo& info);
-  
-  static Handle<Value> GetHeight(Local<String> property, 
-                                 const AccessorInfo& info);
 
-  static Handle<Value> GetBitRate(Local<String> property, 
-                                  const AccessorInfo& info);
+  static v8::Persistent<v8::ObjectTemplate> constructor;
 
-  static Handle<Value> GetSampleFmt(Local<String> property, 
-                                    const AccessorInfo& info);
+  static void Init(v8::Isolate *isolate);
 
-  static Handle<Value> GetSampleRate(Local<String> property, 
-                                    const AccessorInfo& info);
+  static v8::Local<v8::Value> New(v8::Isolate *isolate, AVCodecContext *pContext);
 
-  static Handle<Value> GetChannels(Local<String> property, 
-                                    const AccessorInfo& info);
-  
-  static Handle<Value> GetFramerate(Local<String> property, 
-                                    const AccessorInfo& info);
+  static void Open(const v8::FunctionCallbackInfo<v8::Value>& args);
+
+  static void GetType(Local<String> property,
+                      const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetWidth(Local<String> property,
+                      const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetHeight(Local<String> property,
+                        const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetBitRate(Local<String> property,
+                         const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetSampleFmt(Local<String> property,
+                           const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetSampleRate(Local<String> property,
+                            const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetChannels(Local<String> property,
+                          const v8::PropertyCallbackInfo<v8::Value>& info);
+
+  static void GetFramerate(Local<String> property,
+                           const v8::PropertyCallbackInfo<v8::Value>& info);
 };
 
 

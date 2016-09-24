@@ -26,46 +26,44 @@
 
 using namespace v8;
 
-Persistent<ObjectTemplate> NAVStream::templ;
+v8::Persistent<v8::ObjectTemplate> NAVStream::constructor;
 
-NAVStream::NAVStream(AVStream *pStream){
+NAVStream::NAVStream(AVStream *pStream) {
   this->pContext = pStream;
 }
-NAVStream::~NAVStream(){
+NAVStream::~NAVStream() {
   // TODO: clean ups?
   fprintf(stderr, "NAVStream destroyed\n");
 }
 
-void NAVStream::Init(){
-  HandleScope scope;
-  
-  Local<ObjectTemplate> templ = ObjectTemplate::New();
-  templ->SetInternalFieldCount(1);
-  
-  NAVStream::templ = Persistent<ObjectTemplate>::New(templ);
+void NAVStream::Init(v8::Isolate *isolate) {
+  v8::Local<v8::ObjectTemplate> tpl = v8::ObjectTemplate::New(isolate);
+  tpl->SetInternalFieldCount(1);
+
+  constructor.Reset(isolate, tpl);
 }
 
-Handle<Value> NAVStream::New(AVStream *pStream){
-  HandleScope scope;
-  
+v8::Local<v8::Object> NAVStream::New(v8::Isolate *isolate, AVStream *pStream) {
+  v8::EscapableHandleScope scope(isolate);
   NAVStream *instance = new NAVStream(pStream);
-  
-  Handle<Object> obj = NAVStream::templ->NewInstance();
+
+  v8::Local<v8::ObjectTemplate> cons = v8::Local<v8::ObjectTemplate>::New(isolate, constructor);
+  v8::Local<v8::Object> obj = cons->NewInstance();
   instance->Wrap(obj);
-    
-  Handle<Value> codec = NAVCodecContext::New(pStream->codec);
-  
+
+  v8::Local<v8::Value> codec = NAVCodecContext::New(isolate, pStream->codec);
+
   SET_KEY_VALUE(obj, "codec", codec);
-  
+
   float duration = pStream->duration*pStream->time_base.num/
                    (float)pStream->time_base.den;
-  
+
   duration = duration < 0? -1 : duration;
-  
-  SET_KEY_VALUE(obj, "duration", Number::New(duration));
-  SET_KEY_VALUE(obj, "metadata", NAVDictionary::New(pStream->metadata));
-  SET_KEY_VALUE(obj, "numFrames", Integer::New(pStream->nb_frames));
-  
+
+  SET_KEY_VALUE(obj, "duration", Number::New(isolate, duration));
+  SET_KEY_VALUE(obj, "metadata", NAVDictionary::New(isolate, pStream->metadata));
+  SET_KEY_VALUE(obj, "numFrames", Integer::New(isolate, pStream->nb_frames));
+
 #if LIBAVFORMAT_VERSION_INT < AV_VERSION_INT(52, 42, 0)
   AVRational fr = pStream->r_frame_rate;
 #else
@@ -73,13 +71,13 @@ Handle<Value> NAVStream::New(AVStream *pStream){
 #endif
 
   if(fr.num){
-    Local<Object> frameRate = Object::New();
+    Local<Object> frameRate = Object::New(isolate);
 
-    SET_KEY_VALUE(frameRate, "num", Integer::New(fr.num));
-    SET_KEY_VALUE(frameRate, "den", Integer::New(fr.den));
+    SET_KEY_VALUE(frameRate, "num", Integer::New(isolate, fr.num));
+    SET_KEY_VALUE(frameRate, "den", Integer::New(isolate, fr.den));
 
     SET_KEY_VALUE(obj, "frameRate", frameRate);
   }
 
-  return scope.Close(obj);
+  return scope.Escape(obj);
 }

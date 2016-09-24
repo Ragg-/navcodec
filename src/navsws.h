@@ -34,32 +34,32 @@ extern "C" {
 
 using namespace v8;
 
-class NAVSws : node::ObjectWrap {
+class NAVSws : public node::ObjectWrap {
 private:
   struct SwsContext *pContext;
-  
+
   Persistent<Object> frame;
   AVFrame *pFrame;
   uint8_t *pFrameBuffer;
   bool passthrough;
-  
+
   int width;
   int height;
   PixelFormat pix_fmt;
-  
+
 public:
   NAVSws();
   ~NAVSws();
-  
-  static Persistent<FunctionTemplate> templ;
-  
-  static void Init(Handle<Object> target);
-  
+
+  static v8::Persistent<v8::Function> constructor;
+
+  static void Init(v8::Local<v8::Object> target);
+
   // (srcStream, dstStream)
-  static Handle<Value> New(const Arguments& args);
-    
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // (srcFrame) -> dstFrame
-  static Handle<Value> Convert(const Arguments& args);
+  static void Convert(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif // _NAVSWS_H

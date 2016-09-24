@@ -50,124 +50,127 @@ NAVResample::NAVResample(){
 
 NAVResample::~NAVResample(){
   fprintf(stderr, "NAVResample destructor\n");
-  
+
   avresample_free(&pContext);
-  
-  frame.Dispose();
+
+  frame.Reset();
 }
 
-Persistent<FunctionTemplate> NAVResample::templ;
+v8::Persistent<v8::Function> NAVResample::constructor;
 
-void NAVResample::Init(Handle<Object> target){
-  HandleScope scope;
-  
+void NAVResample::Init(v8::Local<v8::Object> target) {
+  v8::Isolate* isolate = target->GetIsolate();
+
   // Our constructor
-  Local<FunctionTemplate> templ = FunctionTemplate::New(New);
-  
-  NAVResample::templ = Persistent<FunctionTemplate>::New(templ);
-  
-  NAVResample::templ->InstanceTemplate()->SetInternalFieldCount(1); // 1 since this is a constructor function
-  NAVResample::templ->SetClassName(String::NewSymbol("NAVResample"));
-  
-  NODE_SET_PROTOTYPE_METHOD(NAVResample::templ, "convert", Convert);
-  
-  target->Set(String::NewSymbol("NAVResample"), NAVResample::templ->GetFunction());    
+  v8::Local<v8::FunctionTemplate> tpl = v8::FunctionTemplate::New(isolate, New);
+  tpl->SetClassName(String::NewFromUtf8(isolate, "NAVResample"));
+  tpl->InstanceTemplate()->SetInternalFieldCount(1); // 1 since this is a constructor function
+
+  NODE_SET_PROTOTYPE_METHOD(tpl, "convert", Convert);
+
+  constructor.Reset(isolate, tpl->GetFunction());
+  target->Set(String::NewFromUtf8(isolate, "NAVResample"), tpl->GetFunction());
 }
 
 // (srcStream, dstStream, [options])
-Handle<Value> NAVResample::New(const Arguments& args) {
-  HandleScope scope;
-  Local<Object> self = args.This();
-  
+void NAVResample::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = args.GetIsolate();
+  v8::Local<v8::Object> self = args.This();
+
   NAVResample* instance = new NAVResample();
-  
   instance->Wrap(self);
-  
-  if(args.Length()<2){
-    return ThrowException(Exception::TypeError(String::New("Missing input parameters (srcStream, dstStream)")));
+
+  if (args.Length() < 2) {
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcStream, dstStream)")));
+    return;
   }
-  
+
   Local<Object> stream = Local<Object>::Cast(args[0]);
   AVStream *pSrcStream = (node::ObjectWrap::Unwrap<NAVStream>(stream))->pContext;
-  
+
   stream = Local<Object>::Cast(args[1]);
   AVStream *pDstStream = (node::ObjectWrap::Unwrap<NAVStream>(stream))->pContext;
 
   instance->pSrcStream = pSrcStream;
   instance->pDstStream = pDstStream;
-  
+
   AVCodecContext *pSrcCodec = pSrcStream->codec;
   AVCodecContext *pDstCodec = pDstStream->codec;
-  
+
   if((pSrcCodec->channels != pDstCodec->channels) ||
      (pSrcCodec->sample_rate != pDstCodec->sample_rate) ||
      (pSrcCodec->sample_fmt != pDstCodec->sample_fmt) || // Sample format is irrelevant or not?
      (pSrcCodec->bit_rate > pDstCodec->bit_rate)){
-    
+
     instance->pContext = avresample_alloc_context();
     if(instance->pContext == NULL) {
-      return ThrowException(Exception::TypeError(String::New("Could not init resample context")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not init resample context")));
+      return;
     }
-  
+
     {
       AVAudioResampleContext *avr  = instance->pContext;
-      
+
       // TODO: Decide Channel layout based on input and output number of channels.
       av_opt_set_int(avr, "in_channel_layout",  numChannesToLayout(pSrcCodec->channels), 0);
       av_opt_set_int(avr, "out_channel_layout", numChannesToLayout(pDstCodec->channels), 0);
-    
+
       av_opt_set_int(avr, "in_sample_rate", pSrcCodec->sample_rate, 0);
       av_opt_set_int(avr, "in_sample_fmt",  pSrcCodec->sample_fmt, 0);
 
       av_opt_set_int(avr, "out_sample_rate", pDstCodec->sample_rate, 0);
       av_opt_set_int(avr, "out_sample_fmt", pDstCodec->sample_fmt, 0);
-    
+
       if(avresample_open(instance->pContext)){
-        return ThrowException(Exception::TypeError(String::New("Could not open resampler")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not open resampler")));
+        return;
       }
     }
-    
+
     instance->pFrame = avcodec_alloc_frame();
     if (!instance->pFrame){
-      return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame")));
+      return;
     }
-  
-    instance->frame = Persistent<Object>::New(NAVFrame::New(instance->pFrame));
+
+    instance->frame.Reset(isolate, NAVFrame::New(isolate, instance->pFrame));
     instance->passthrough = false;
   }
-  
-  return self;
+
+  args.GetReturnValue().Set(self);
 }
 
 // (frame: AVFrame) -> AVFrame;
-Handle<Value> NAVResample::Convert(const Arguments& args) {
-  HandleScope scope;
+void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
+  v8::Isolate* isolate = args.GetIsolate();
+
   Local<Object> srcFrame;
   Handle<Object> dstFrame;
-  
+
   if(args.Length()<1){
-    return ThrowException(Exception::TypeError(String::New("Missing input parameters (srcFrame)")));
+    isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Missing input parameters (srcFrame)")));
+    return;
   }
   srcFrame = Local<Array>::Cast(args[0]);
-  
+
   NAVResample* instance = UNWRAP_OBJECT(NAVResample, args);
-    
+
   if(instance->passthrough){
-    return srcFrame;
+    args.GetReturnValue().Set(srcFrame);
   } else {
     AVFrame *pSrcFrame = (node::ObjectWrap::Unwrap<NAVFrame>(srcFrame))->pContext;
-  
+
     AVCodecContext *pCodecContext = instance->pDstStream->codec;
-    
+
     avcodec_get_frame_defaults(instance->pFrame);
-    
+
     instance->pFrame->quality = 1;
     instance->pFrame->pts = pSrcFrame->pts;
     instance->pFrame->format = pCodecContext->sample_fmt;
 
     {
       AVAudioResampleContext *avr  = instance->pContext;
-      
+
       uint8_t *output;
       int out_linesize;
 
@@ -177,7 +180,7 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
                                       pCodecContext->sample_rate,
                                       instance->pSrcStream->codec->sample_rate,
                                       AV_ROUND_UP);
-      
+
       av_samples_alloc(&output,
                        &out_linesize,
                        pCodecContext->channels,
@@ -185,9 +188,10 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
                        pCodecContext->sample_fmt,
                        1);
       if(output == NULL) {
-        return ThrowException(Exception::TypeError(String::New("Failed allocating output samples buffer")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Failed allocating output samples buffer")));
+        return;
       }
-      
+
       nb_samples = avresample_convert(avr,
                                       &output,
                                       out_linesize,
@@ -195,7 +199,7 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
                                       pSrcFrame->data,
                                       pSrcFrame->linesize[0],
                                       pSrcFrame->nb_samples);
-      int size = nb_samples * 
+      int size = nb_samples *
                  pCodecContext->channels *
                  av_get_bytes_per_sample(pCodecContext->sample_fmt);
 
@@ -210,14 +214,15 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
 
       if(ret<0) {
         fprintf(stderr, "avcodec_fill_audio_frame returned %i\n", ret);
-        return ThrowException(Exception::TypeError(String::New("Failed filling frame")));
+        isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Failed filling frame")));
+        return;
       }
       av_freep(&output);
     }
-  
+
     instance->pFrame->owner = instance->pDstStream->codec;
-    
-    return instance->frame;
+
+    args.GetReturnValue().Set(instance->frame);
   }
 }
 
@@ -252,6 +257,3 @@ Handle<Value> NAVResample::Convert(const Arguments& args) {
    AV_CH_LAYOUT_STEREO_DOWNMIX
    AV_CH_LAYOUT_SURROUND
 */
-
-
-

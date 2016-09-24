@@ -32,7 +32,7 @@ extern "C" {
 
 using namespace v8;
 
-Handle<Object> CreatePixelFormatsEnum();
+v8::Local<v8::Object> CreatePixelFormatsEnum(v8::Isolate *isolate);
 
 
 #endif // _NAV_PIX_FORMATS_H

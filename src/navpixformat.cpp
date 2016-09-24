@@ -22,11 +22,11 @@
 #include "navpixformat.h"
 #include "navutils.h"
 
-Handle<Object> CreatePixelFormatsEnum(){
-  HandleScope scope;
-  
-  Handle<Object> obj = Object::New();
-    
+v8::Local<v8::Object> CreatePixelFormatsEnum(v8::Isolate *isolate) {
+  v8::EscapableHandleScope scope(isolate);
+
+  Handle<Object> obj = Object::New(isolate);
+
   OBJECT_SET_ENUM(obj, PIX_FMT_NONE);
   OBJECT_SET_ENUM(obj, PIX_FMT_YUV420P);
   OBJECT_SET_ENUM(obj, PIX_FMT_YUYV422);
@@ -113,11 +113,10 @@ Handle<Object> CreatePixelFormatsEnum(){
   OBJECT_SET_ENUM(obj, PIX_FMT_GBRP10LE);
   OBJECT_SET_ENUM(obj, PIX_FMT_GBRP16BE);
   OBJECT_SET_ENUM(obj, PIX_FMT_GBRP16LE);
-  
-  return scope.Close(obj);
+
+  return scope.Escape(obj);
 }
 
 // ?
-//PIX_FMT_Y400A 	
+//PIX_FMT_Y400A
 //8bit gray, 8bit alpha
-

@@ -23,34 +23,33 @@
 
 using namespace v8;
 
-Persistent<ObjectTemplate> NAVFrame::templ;
+Persistent<ObjectTemplate> NAVFrame::constructor;
 
 NAVFrame::NAVFrame(AVFrame *pFrame){
   pContext = pFrame;
 }
-  
+
 NAVFrame::~NAVFrame(){
   printf("NAVFrame destructor\n");
   //av_free(pContext);
   avcodec_free_frame(&pContext);
 }
-  
-void NAVFrame::Init(){
-  HandleScope scope;
-  
-  Local<ObjectTemplate> templ = ObjectTemplate::New();
-  templ->SetInternalFieldCount(1);
-  
-  NAVFrame::templ = Persistent<ObjectTemplate>::New(templ);
-}
-  
-Handle<Object> NAVFrame::New(AVFrame *pFrame) {
-  HandleScope scope;
-  
-  NAVFrame *instance = new NAVFrame(pFrame);
 
-  Handle<Object> obj = NAVFrame::templ->NewInstance();
+void NAVFrame::Init(v8::Isolate *isolate) {
+  Local<ObjectTemplate> templ = ObjectTemplate::New(isolate);
+  templ->SetInternalFieldCount(1);
+
+  constructor.Reset(isolate, templ);
+}
+
+v8::Local<v8::Object> NAVFrame::New(v8::Isolate *isolate, AVFrame *pFrame) {
+  //v8::Isolate *isolate = v8::Isolate::GetCurrent();
+  v8::EscapableHandleScope scope(isolate);
+
+  v8::Local<v8::ObjectTemplate> cons = v8::Local<v8::ObjectTemplate>::New(isolate, constructor);
+  NAVFrame *instance = new NAVFrame(pFrame);
+  v8::Local<v8::Object> obj = cons->NewInstance();
   instance->Wrap(obj);
 
-  return scope.Close(obj);
+  return scope.Escape(obj);
 }

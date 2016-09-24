@@ -24,6 +24,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -32,20 +33,20 @@ extern "C" {
 
 using namespace v8;
 
-class NAVStream : node::ObjectWrap {
+class NAVStream : public node::ObjectWrap {
 
 public:
   AVStream *pContext;
-  
+
   NAVStream(AVStream *pStream);
   ~NAVStream();
-  
-  static Persistent<ObjectTemplate> templ;
-  
-  static void Init();
-  
-  static Handle<Value> New(const Arguments& args);
-  static Handle<Value> New(AVStream *pStream);
+
+  static v8::Persistent<v8::ObjectTemplate> constructor;
+
+  static void Init(v8::Isolate *isolate);
+
+  //static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+  static v8::Local<v8::Object> New(v8::Isolate *isolate, AVStream *pStream);
 };
 
 #endif //_NAVSTREAM_H

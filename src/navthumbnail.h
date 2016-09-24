@@ -25,6 +25,7 @@
 
 #include <v8.h>
 #include <node.h>
+#include <node_object_wrap.h>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
@@ -33,26 +34,25 @@ extern "C" {
 
 using namespace v8;
 
-class NAVThumbnail : node::ObjectWrap {
+class NAVThumbnail : public node::ObjectWrap {
 private:
   AVCodecContext *pContext;
   uint64_t bufferSize;
   uint8_t *pBuffer;
-  
+
 public:
   NAVThumbnail();
   ~NAVThumbnail();
-  
-  static Persistent<FunctionTemplate> templ;
-  
-  static void Init(Handle<Object> target);
-  
+
+  static v8::Persistent<v8::Function> constructor;
+
+  static void Init(v8::Local<v8::Object> target);
+
   // (srcStream, dstStream)
-  static Handle<Value> New(const Arguments& args);
-    
+  static void New(const v8::FunctionCallbackInfo<v8::Value>& args);
+
   // (srcFrame) -> dstFrame
-  static Handle<Value> Write(const Arguments& args);
+  static void Write(const v8::FunctionCallbackInfo<v8::Value>& args);
 };
 
 #endif // _NAVTHUMBNAIL_H
-
