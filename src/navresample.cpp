@@ -127,7 +127,7 @@ void NAVResample::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
       }
     }
 
-    instance->pFrame = avcodec_alloc_frame();
+    instance->pFrame = av_frame_alloc();
     if (!instance->pFrame){
       isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame")));
       return;
@@ -162,7 +162,7 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
     AVCodecContext *pCodecContext = instance->pDstStream->codec;
 
-    avcodec_get_frame_defaults(instance->pFrame);
+    instance->pFrame = av_frame_alloc();
 
     instance->pFrame->quality = 1;
     instance->pFrame->pts = pSrcFrame->pts;
@@ -220,9 +220,7 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
       av_freep(&output);
     }
 
-    instance->pFrame->owner = instance->pDstStream->codec;
-
-    args.GetReturnValue().Set(instance->frame);
+    return instance->frame;
   }
 }
 

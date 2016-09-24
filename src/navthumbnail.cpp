@@ -88,7 +88,7 @@ void NAVThumbnail::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
 	instance->pContext->width = GET_OPTION_UINT32(options, width, 128);
 	instance->pContext->height = GET_OPTION_UINT32(options, height, 128);;
-	instance->pContext->pix_fmt = (PixelFormat) GET_OPTION_UINT32(options, pix_fmt, PIX_FMT_YUVJ420P);
+	instance->pContext->pix_fmt = (AVPixelFormat) GET_OPTION_UINT32(options, pix_fmt, AV_PIX_FMT_YUVJ420P);
 
   instance->pContext->time_base.num = 1;
   instance->pContext->time_base.den = 1;

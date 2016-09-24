@@ -45,7 +45,7 @@ private:
 
   int width;
   int height;
-  PixelFormat pix_fmt;
+  AVPixelFormat pix_fmt;
 
 public:
   NAVSws();
