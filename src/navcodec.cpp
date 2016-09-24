@@ -56,6 +56,7 @@ extern "C" { // Cause of name mangling in C++, we use extern C here
     NAVSws::Init(target);
     NAVResample::Init(target);
     NAVThumbnail::Init(target);
+    NAVStreamReader::Init(target);
 
     target->Set(String::NewFromUtf8(isolate, "relocateMoov"), FunctionTemplate::New(isolate, RelocateMoov)->GetFunction());
 

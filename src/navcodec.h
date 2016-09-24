@@ -30,4 +30,5 @@
 #include "navresample.h"
 #include "navdictionary.h"
 #include "navthumbnail.h"
+#include "navstreamreader.h"
 #include "relocatemoov.h"

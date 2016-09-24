@@ -7,6 +7,7 @@
     "src/navframe.cpp",
     "src/navformat.cpp",
     "src/navstream.cpp",
+    "src/navstreamreader.cpp",
     "src/navoutformat.cpp",
     "src/navpixformat.cpp",
     "src/navsws.cpp",
