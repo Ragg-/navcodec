@@ -1,5 +1,6 @@
 build
 lib
 node_modules
-.npm-debug.logi
+.npm-debug
+lib/
 test/fixture/transcode
