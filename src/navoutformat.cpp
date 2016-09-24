@@ -288,7 +288,7 @@ void NAVOutputFormat::AddStream(const v8::FunctionCallbackInfo<v8::Value>& args)
   AVCodecContext *pCodecContext = pStream->codec;
   avcodec_get_context_defaults3 (pCodecContext, pCodec);
 
-  AVPixelFormat pix_fmt = (AVPixelFormat) options->Get(String::NewSymbol("pix_fmt"))->Uint32Value();
+  AVPixelFormat pix_fmt = (AVPixelFormat) options->Get(String::NewFromUtf8(isolate, "pix_fmt"))->Uint32Value();
 
   pCodecContext->pix_fmt = get_pix_fmt(pCodec, pix_fmt);
 

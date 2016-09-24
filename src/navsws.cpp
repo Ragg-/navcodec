@@ -117,7 +117,8 @@ void NAVSws::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
     instance->pFrameBuffer = (uint8_t*) av_mallocz(frameBufferSize);
     if (!instance->pFrameBuffer ){
       av_frame_free(&instance->pFrame);
-      return ThrowException(Exception::TypeError(String::New("Error Allocating AVFrame buffer")));
+      isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Error Allocating AVFrame buffer")));
+      return;
     }
 
     instance->frame.Reset(isolate, NAVFrame::New(isolate, instance->pFrame));

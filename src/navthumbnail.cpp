@@ -75,38 +75,37 @@ void NAVThumbnail::New(const v8::FunctionCallbackInfo<v8::Value>& args) {
   Local<Object> options = Local<Object>::Cast(args[0]);
 
   AVCodec *pCodec = avcodec_find_encoder(AV_CODEC_ID_MJPEG);
-	if (!pCodec) {
+  if (!pCodec) {
     isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not alloc codec")));
     return;
-	}
+  }
 
   instance->pContext = avcodec_alloc_context3(pCodec);
-	if (!instance->pContext) {
+  if (!instance->pContext) {
     isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not alloc codec context")));
-		return;
-	}
+    return;
+  }
 
-	instance->pContext->width = GET_OPTION_UINT32(options, width, 128);
-	instance->pContext->height = GET_OPTION_UINT32(options, height, 128);;
-	instance->pContext->pix_fmt = (AVPixelFormat) GET_OPTION_UINT32(options, pix_fmt, AV_PIX_FMT_YUVJ420P);
+  instance->pContext->width = GET_OPTION_UINT32(options, width, 128);
+  instance->pContext->height = GET_OPTION_UINT32(options, height, 128);;
+  instance->pContext->pix_fmt = (AVPixelFormat) GET_OPTION_UINT32(options, pix_fmt, AV_PIX_FMT_YUVJ420P);
 
   instance->pContext->time_base.num = 1;
   instance->pContext->time_base.den = 1;
 
   AVDictionary *pDict = NAVDictionary::New(options);
-	if (avcodec_open2(instance->pContext, pCodec, &pDict) < 0) {
+  if (avcodec_open2(instance->pContext, pCodec, &pDict) < 0) {
     av_dict_free(&pDict);
     delete instance;
     isolate->ThrowException(Exception::TypeError(String::NewFromUtf8(isolate, "Could not open codec")));
     return;
-	}
+  }
   av_dict_free(&pDict);
 
   instance->bufferSize = (instance->pContext->width * instance->pContext->height * MAX_BPP) / 8;
-  instance->bufferSize = instance->bufferSize < FF_MIN_BUFFER_SIZE ?
-                         FF_MIN_BUFFER_SIZE:instance->bufferSize;
+  instance->bufferSize = instance->bufferSize < FF_MIN_BUFFER_SIZE ? FF_MIN_BUFFER_SIZE:instance->bufferSize;
+  instance->pBuffer = (uint8_t *) av_mallocz(instance->bufferSize);
 
-	instance->pBuffer = (uint8_t *) av_mallocz(instance->bufferSize);
   if (instance->pBuffer == NULL){
     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error allocating buffer")));
     return;
@@ -142,8 +141,8 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
 
   NAVThumbnail* instance = UNWRAP_OBJECT(NAVThumbnail, args);
 
-	pFrame->pts = 1;
-	pFrame->quality = instance->pContext->global_quality;
+  pFrame->pts = 1;
+  pFrame->quality = instance->pContext->global_quality;
 
   AVPacket packet;
   packet.data = instance->pBuffer;
@@ -158,14 +157,14 @@ void NAVThumbnail::Write(const v8::FunctionCallbackInfo<v8::Value>& args) {
   }
   int encodedSize = packet.size;
 
-	FILE *fileHandle = fopen(filename, "wb");
+  FILE *fileHandle = fopen(filename, "wb");
   if(fileHandle == NULL){
     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Error opening thumbnail file")));
     return;
   }
 
-	int ret = fwrite(instance->pBuffer, 1, encodedSize, fileHandle);
-	fclose(fileHandle);
+  int ret = fwrite(instance->pBuffer, 1, encodedSize, fileHandle);
+  fclose(fileHandle);
 
   // TODO: Make asynchronous
   if (ret < encodedSize) {

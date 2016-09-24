@@ -220,7 +220,7 @@ void NAVResample::Convert(const v8::FunctionCallbackInfo<v8::Value>& args) {
       av_freep(&output);
     }
 
-    return instance->frame;
+    args.GetReturnValue().Set(instance->frame);
   }
 }
 
