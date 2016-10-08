@@ -116,14 +116,27 @@ void NAVStreamReader::Next(const FunctionCallbackInfo<Value> &args) {
         return;
     }
 
-    int got_packet_ptr;
+    int frame_count = 0;
+    int got_frame = 0;
+    int len = 0;
+    uint8_t inbuf[INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
+    memset(inbuf + INBUF_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+
     AVPacket pkt;
     av_init_packet(&pkt);
 
-    uint8_t inbuf[INBUF_SIZE +  AV_INPUT_BUFFER_PADDING_SIZE];
+    Script::Compile(String::NewFromUtf8(isolate, "console.log(\"packet allocated\");"))->Run();
+
+    if (instance->pContext) {
+        Script::Compile(String::NewFromUtf8(isolate, "console.log(\"context exists\");"))->Run();
+    } else {
+        Script::Compile(String::NewFromUtf8(isolate, "console.log(\"context no exists\");"))->Run();
+    }
 
     for (;;) {
+        Script::Compile(String::NewFromUtf8(isolate, "console.log(\"Before read\");"))->Run();
         pkt.size = fread(inbuf, 1, INBUF_SIZE, instance->inputHandle);
+        // Script::Compile(String::NewFromUtf8(isolate, "console.log(\"read \" + pkt.size + \" bytes\");"))->Run();
 
         if (pkt.size == 0) {
             break;
@@ -131,48 +144,27 @@ void NAVStreamReader::Next(const FunctionCallbackInfo<Value> &args) {
 
         pkt.data = inbuf;
         while (pkt.size > 0) {
-            int len = avcodec_decode_video2(instance->pContext, frame, &got_packet_ptr, &pkt);
+            Script::Compile(String::NewFromUtf8(isolate, "console.log(\"Decoding\");"))->Run();
+            len = avcodec_decode_video2(instance->pContext, frame, &got_frame, &pkt);
+            Script::Compile(String::NewFromUtf8(isolate, "console.log(\"decoded\");"))->Run();
 
             if (len < 0)  {
                 isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "failed to decode video")));
                 return;
             }
 
-            if (got_packet_ptr) {
-
+            if (got_frame) {
+                frame_count++;
+                break;
             }
         }
     }
 
+    // Local<ArrayBuffer> buffer = ArrayBuffer::New(isolate, frame->data, sizeof(frame->data));
 
-    // for (int y = 0; y < instance->pContext->height; y++) {
-    //     for (int x = 0; x < instance->pContext->width; x++) {
-    //         frame->data[0][y * frame->linesize[0] + x] = x + y + 0 * 3;
-    //     }
-    // }
-    // /* Cb and Cr */
-    // for (int y = 0; y < instance->pContext->height/2; y++) {
-    //     for (int x = 0; x < instance->pContext->width/2; x++) {
-    //         frame->data[1][y * frame->linesize[1] + x] = 128 + y + 0 * 2;
-    //         frame->data[2][y * frame->linesize[2] + x] = 64 + x + 0 * 5;
-    //     }
-    // }
-
-    // ret = avcodec_decode_video2(instance->pContext, &pkt, &got_packet_ptr, frame);
-    // if (ret < 0) {
-    //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to encode")));
-    // }
-
-    Local<ArrayBuffer> buffer = ArrayBuffer::New(isolate, 1);
-    // Local<ArrayBuffer> buffer = ArrayBuffer::New(isolate, pkt.data, pkt.size);
-
-    // view->Set(Local<v8::Value> key, Local<v8::Value> value)
-    // int pkt_size = pkt.size;
-    // for (int idx = 0; idx < pkt_size; idx++) {
-    //     buffer->Set(idx, Number::New(isolate, pkt.data[idx]));
-    // }
-
+    pkt.data = NULL;
+    pkt.size = 0;
     av_packet_unref(&pkt);
-    args.GetReturnValue().Set(buffer);
-    // args.GetReturnValue().Set(true);
+    // args.GetReturnValue().Set(buffer);
+    args.GetReturnValue().Set(Integer::New(isolate, (int32_t) (int8_t) *frame->data[0]));
 }
