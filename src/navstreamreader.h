@@ -10,6 +10,7 @@ using namespace v8;
 extern "C" {
 #include <stdio.h>
 #include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
 }
 
@@ -18,7 +19,10 @@ private:
     const char * inputFilePath;
     uint32_t frameCursor;
     FILE* inputHandle;
-    AVCodecContext *pContext = NULL;
+
+    AVCodec *pCodec;
+    AVCodecContext *pCodecCtx;
+    AVFormatContext *pFormatCtx;
 
 public:
     NAVStreamReader(const char *in_file);

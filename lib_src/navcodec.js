@@ -28,7 +28,6 @@ export default class NAVCodec
 
     static async openStream(input, options = {})
     {
-        console.log('wait');
         const media = await NAVCodec.open(input, options);
         return new Stream(media);
     }

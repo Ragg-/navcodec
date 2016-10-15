@@ -25,6 +25,7 @@
         "-D__STDC_CONSTANT_MACROS",
         "-D_FILE_OFFSET_BITS=64",
         "-D_LARGEFILE_SOURCE",
+        "-std=c++11",
         "-O3",
         "-Wall"
       ],
@@ -34,8 +35,12 @@
         "-lswscale",
         "-lavresample",
         "-lavutil"
-      ]
-    }],
+      ],
+      "xcode_settings": {
+        'OTHER_CPLUSPLUSFLAGS' : ['-std=c++11','-stdlib=libc++'],
+        'OTHER_LDFLAGS': ['-stdlib=libc++'],
+        'MACOSX_DEPLOYMENT_TARGET': '10.7'
+    }}],
     ['OS=="linux"', {
       "cflags" : [
         "-g",
