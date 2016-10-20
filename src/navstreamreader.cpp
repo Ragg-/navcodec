@@ -1,5 +1,6 @@
 #include "navstreamreader.h"
 #include <iostream>
+#include <stdio.h>
 
 using namespace v8;
 
@@ -12,17 +13,33 @@ extern "C" {
 
 NAVStreamReader::NAVStreamReader(const char *inputFilePath) {
     this->inputFilePath = inputFilePath;
-    frameCursor = 0;
-    inputHandle = NULL;
-    pCodec = NULL;
-    pCodecCtx = NULL;
-    pFormatCtx = NULL;
+    this->frameCursor = 0;
+
+    this->pFormatCtx = NULL;
+
+    this->videoStreamIdx = -1;
+    this->audioStreamIdx = -1;
+    this->pVideoStream = NULL;
+    this->pAudioStream = NULL;
+
+    // this->inputHandle = NULL;
+    this->pVideoCodec = NULL;
+    this->pVideoCodecCtx = NULL;
+    this->pAudioCodec = NULL;
+    this->pAudioCodecCtx = NULL;
 }
 
 NAVStreamReader::~NAVStreamReader() {
-    if (this->pCodecCtx) {
-        avcodec_close(this->pCodecCtx);
-        av_free(this->pCodecCtx);
+    if (this->pVideoCodecCtx) {
+        avcodec_close(this->pVideoCodecCtx);
+    }
+
+    if (this->pAudioCodecCtx) {
+        avcodec_close(this->pAudioCodecCtx);
+    }
+
+    if (this->pFormatCtx) {
+        avformat_close_input(& this->pFormatCtx);
     }
 }
 
@@ -55,34 +72,91 @@ void NAVStreamReader::New(const FunctionCallbackInfo<Value> &args) {
     NAVStreamReader *instance = new NAVStreamReader(filename);
     instance->Wrap(args.This());
 
+    std::cout << "constructing...: " << instance->inputFilePath << std::endl;
     if (avformat_open_input(&instance->pFormatCtx, instance->inputFilePath, NULL, NULL) != 0) {
         std::cout << "failed to open format" << std::endl;
         isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "failed to open format")));
         return;
     }
 
-    instance->pCodecCtx = instance->pFormatCtx->streams[0]->codec;
-    instance->pCodec = avcodec_find_decoder(instance->pCodecCtx->codec_id);
-    if (! instance->pCodec) {
-        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to initialize encoder.")));
-        return;
+    for (int streamIdx = 0; streamIdx < instance->pFormatCtx->nb_streams; streamIdx++) {
+        //
+        // Found first video stream
+        //
+        if (
+            instance->videoStreamIdx == -1
+            && instance->pFormatCtx->streams[streamIdx]->codec->codec_type == AVMediaType::AVMEDIA_TYPE_VIDEO
+        ) {
+            std::cout << "Found video stream :" << std::dec << streamIdx << std::endl;
+            instance->videoStreamIdx = streamIdx;
+            instance->pVideoStream = instance->pFormatCtx->streams[streamIdx];
+            instance->pVideoCodecCtx = instance->pFormatCtx->streams[streamIdx]->codec;
+
+            AVCodec *pVideoCodec = avcodec_find_decoder(instance->pVideoCodecCtx->codec_id);
+            if (!pVideoCodec) {
+                isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to find video encoder.")));
+                return;
+            }
+
+            if (avcodec_open2(instance->pVideoCodecCtx, pVideoCodec, NULL) < 0) {
+                isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open video codec.")));
+                return;
+            }
+
+            continue;
+        }
+
+        //
+        // Found first audio stream
+        //
+        if (
+            instance->audioStreamIdx == -1
+            && instance->pFormatCtx->streams[streamIdx]->codec->codec_type == AVMediaType::AVMEDIA_TYPE_AUDIO
+        ) {
+            std::cout << "Found audio stream :" << std::dec << streamIdx << std::endl;
+            instance->audioStreamIdx = streamIdx;
+            instance->pAudioStream = instance->pFormatCtx->streams[streamIdx];
+            instance->pAudioCodecCtx = instance->pFormatCtx->streams[streamIdx]->codec;
+
+            if (! instance->pAudioCodecCtx) {
+                isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to find audio encoder.")));
+                return;
+            }
+
+            AVCodec *pAudioCodec = avcodec_find_decoder(instance->pAudioCodecCtx->codec_id);
+            if (!pAudioCodec) {
+                isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to find video encoder.")));
+                return;
+            }
+
+            if (avcodec_open2(instance->pAudioCodecCtx, pAudioCodec, NULL) < 0) {
+                isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open audio codec.")));
+                return;
+            }
+            continue;
+        }
     }
 
-    // instance->pCodecCtx = avcodec_alloc_context3(instance->pCodec);
-    // if (! instance->pCodecCtx) {
+    // printf("format:%d , RGBA:%d\n", instance->pFormatCtx->iformat->raw_codec_id, AVPixelFormat::AV_PIX_FMT_RGBA);
+
+    // instance->pVideoCodecCtx = avcodec_alloc_context3(instance->pVideoCodec);
+    // if (! instance->pVideoCodecCtx) {
     //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to alloc encoder context.")));
     //     return;
     // }
 
-    if (avcodec_open2(instance->pCodecCtx, instance->pCodec, NULL) < 0) {
-        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open codec.")));
-        return;
-    }
+    // if (instance->pAudioCodecCtx != NULL && avcodec_open2(instance->pAudioCodecCtx, instance->pAudioCodec, NULL) < 0) {
+    //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open codec.")));
+    //     return;
+    // }
 
-    instance->inputHandle = fopen(filename, "rb");
-    if (instance->inputHandle == NULL) {
-        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open file.")));
-    }
+    //
+    // Open file
+    //
+    // instance->inputHandle = fopen(filename, "rb");
+    // if (instance->inputHandle == NULL) {
+    //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open file.")));
+    // }
 
     args.GetReturnValue().Set(args.This());
 }
@@ -102,7 +176,7 @@ void console_log_json(Isolate* isolate, const char* message, v8::Local<v8::Value
 }
 
 void console_log(Isolate* isolate, const char* message) {
-    char script[10000];
+    char script[2000];
     sprintf(script, "console.log('%s');", message);
     Script::Compile(String::NewFromUtf8(isolate, script))->Run();
 }
@@ -112,134 +186,169 @@ void NAVStreamReader::SetMetadata(const FunctionCallbackInfo<Value> &args) {
     NAVStreamReader *instance = ObjectWrap::Unwrap<NAVStreamReader>(args.Holder());
 
     Local<Object> options = args[0]->ToObject(isolate);
+    // console_log_json(isolate, "meta", options);
 
-    console_log_json(isolate, "meta", options);
-
-    // instance->pCodecCtx->pix_fmt = AV_PIX_FMT_RGBA;
-    // instance->pCodecCtx->width = (int) options->Get(String::NewFromUtf8(isolate, "width"))->NumberValue();
-    // instance->pCodecCtx->height = (int) options->Get(String::NewFromUtf8(isolate, "height"))->NumberValue();
+    // instance->pVideoCodecCtx->pix_fmt = AV_PIX_FMT_RGBA;
+    // instance->pVideoCodecCtx->width = (int) options->Get(String::NewFromUtf8(isolate, "width"))->NumberValue();
+    // instance->pVideoCodecCtx->height = (int) options->Get(String::NewFromUtf8(isolate, "height"))->NumberValue();
     // int framerate = (int) options->Get(String::NewFromUtf8(isolate, "framerate"))->NumberValue();
-    // instance->pCodecCtx->time_base = (AVRational) {1, framerate};
+    // instance->pVideoCodecCtx->time_base = (AVRational) {1, framerate};
 
     args.GetReturnValue().Set(true);
 }
 
 void NAVStreamReader::Next(const FunctionCallbackInfo<Value> &args) {
     Isolate *isolate = args.GetIsolate();
-    char script[10000];
 
     NAVStreamReader* instance = ObjectWrap::Unwrap<NAVStreamReader>(args.Holder());
-    console_log_json(isolate, "me", args.This());
+    // console_log_json(isolate, "me", args.This());
 
-    if (avcodec_open2(instance->pCodecCtx, instance->pCodecCtx->codec, NULL) < 0) {
-        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open codec")));
-        return;
-    } else {
-        std::cout << "Open codec" << std::endl;
-    }
-
-    AVFrame *frame = av_frame_alloc();
-    if (! frame) {
-        isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to alloc frame.")));
-        return;
-    } else {
-        std::cout << "Frame allocated" << std::endl;
-    }
-
-    // frame->format = instance->pCodecCtx->pix_fmt;
-    // frame->width = instance->pCodecCtx->width;
-    // frame->height = instance->pCodecCtx->height;
-    // frame->pts = 0;
-
-    // std::cout << "Width: " << std::dec << instance->pCodecCtx->width << std::endl;
-    // std::cout << "Height: " << std::dec << instance->pCodecCtx->height << std::endl;
-
-    // int ret = av_image_alloc(frame->data, frame->linesize,
-    //     instance->pCodecCtx->width, instance->pCodecCtx->height,
-    //     instance->pCodecCtx->pix_fmt, 32);
-
-    // if (ret < 0) {
-    //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to alloc image")));
+    // if (avcodec_open2(instance->pVideoCodecCtx, instance->pVideoCodecCtx->codec, NULL) < 0) {
+    //     isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Failed to open codec")));
     //     return;
     // }
 
     int frame_count = 0;
-    int got_frame = 0;
-    long len = 0;
+    // char script[1000];
 
-    uint8_t inbuf[INBUF_SIZE + AV_INPUT_BUFFER_PADDING_SIZE];
-    memset(inbuf + INBUF_SIZE, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+    AVFrame *pVideoInputFrame = av_frame_alloc();
+    AVFrame *pAudioInputFrame = av_frame_alloc();
+    AVFrame *pExportFrame = av_frame_alloc();
 
-    std::cout << "Memset" << std::endl;
+    AVPacket avImagePkt;
+    AVPacket avAudioPkt;
+    av_init_packet(&avImagePkt);
+    av_init_packet(&avAudioPkt);
 
-    AVPacket avpkt;
-    std::cout << "Packet allocate" << std::endl;
-    av_init_packet(&avpkt);
+    unsigned char* videoBuffer = (unsigned char *) av_malloc(
+        av_image_get_buffer_size(
+            instance->pVideoCodecCtx->pix_fmt == -1 ? AV_PIX_FMT_YUV420P : instance->pVideoCodecCtx->pix_fmt,
+            instance->pVideoCodecCtx->width,
+            instance->pVideoCodecCtx->height,
+            1 // via avpicture_get_size implementation
+        )
+    );
 
-    std::cout << "Packet allocated" << std::endl;
+    av_image_fill_arrays(
+        pExportFrame->data,
+        pExportFrame->linesize,
+        videoBuffer,
+        AVPixelFormat::AV_PIX_FMT_RGBA,
+        instance->pVideoCodecCtx->width,
+        instance->pVideoCodecCtx->height,
+        1 // via avpicture_fill implementation
+    );
 
-    if (instance->pCodecCtx) {
-        std::cout << "Context exists." << std::endl;
-    } else {
-        std::cout << "Context no exists." << std::endl;
-    }
+    // sprintf(script, "Channels: %d", pExportFrame->channels);
+    // console_log(isolate, script);
 
-    // for (;;) {
-        // std::cout << "Before read" << std::endl;
-        // avpkt.size = fread(inbuf, 1, INBUF_SIZE, instance->inputHandle);
-        // std::cout << "Read " << std::dec << avpkt.size << " bytes." << std::endl;
-        // std::cout << "File handle: " << (instance->inputHandle == NULL ? "null" : "set") << std::endl;
+    // std::cout << "fill_arrays" << std::endl;
+    //
+    // std::cout << "fill_arrays" << std::endl;
 
-        // if (avpkt.size == 0) {
+    SwsContext* pSWSCtxForExport = sws_getContext(
+        instance->pVideoCodecCtx->width,
+        instance->pVideoCodecCtx->height,
+        instance->pVideoCodecCtx->pix_fmt == -1 ? AV_PIX_FMT_YUV420P : instance->pVideoCodecCtx->pix_fmt,
+        instance->pVideoCodecCtx->width,
+        instance->pVideoCodecCtx->height,
+        AVPixelFormat::AV_PIX_FMT_RGBA,
+        SWS_FAST_BILINEAR,
+        NULL,
+        NULL,
+        NULL
+    );
+
+    // std::cout << "getContext" << std::endl;
+
+    int imageLen = 0;
+    int audioLen = 0;
+    int got_video_frame = 0;
+    int got_audio_frame = 0;
+
+    Local<ArrayBuffer> imageBuffer;
+    Local<ArrayBuffer> audioBuffer;
+    Local<Array> returns = Array::New(isolate);
+
+    // std::cout << "Before read video frame" << std::endl;
+    while (av_read_frame(instance->pFormatCtx, &avImagePkt) >= 0) {
+        // std::cout << "After read video frame" << std::endl;
+
+        if (avImagePkt.stream_index == instance->videoStreamIdx) {
+            imageLen = avcodec_decode_video2(instance->pVideoCodecCtx, pVideoInputFrame, &got_video_frame, &avImagePkt);
+            std::cout << "Video decoded" << std::endl;
+        }
+
+        if (avImagePkt.stream_index == instance->audioStreamIdx) {
+            std::cout << "Audio decoding" << std::endl;
+
+            if (!instance->pAudioCodecCtx) {
+                std::cout << "missing AudioCodecCtx" << std::endl;
+            }
+
+            if (avAudioPkt.size >= 0) {
+                std::cout << "missing AudioPacket" << std::endl;
+            }
+
+            audioLen = avcodec_decode_audio4(instance->pAudioCodecCtx, NULL, &got_audio_frame, &avAudioPkt);
+            std::cout << "Audio decoded" << std::endl;
+        }
+
+        // if (got_video_frame) {
+        // //     frame_count++;
+        // //     std::cout << "got frame" << std::endl;
+        // //
+        //     int imageSizeBytes = instance->pVideoCodecCtx->width * instance->pVideoCodecCtx->height * 4; // RGBA 4bytes
+        // //     int audioSizeBytes = av_samples_get_buffer_size(
+        // //         NULL,
+        // //         instance->pVideoCodecCtx->channels,
+        // //         pAudioInputFrame->nb_samples,
+        // //         instance->pVideoCodecCtx->sample_fmt,
+        // //         1
+        // //     );
+        // //
+        //     sws_scale(
+        //         pSWSCtxForExport,
+        //         pVideoInputFrame->data,
+        //         pVideoInputFrame->linesize,
+        //         0,
+        //         instance->pVideoCodecCtx->height,
+        //         pExportFrame->data,
+        //         pExportFrame->linesize
+        //     );
+        // //
+        // //     // std::cout << std::dec << pVideoInputFrame->width << " x " << std::dec << pVideoInputFrame->height << " * " << 3 << std::endl;
+        // //     // std::cout << "sizeof: " << std::dec << sizeof(pVideoInputFrame->data) << std::endl;
+        // //
+        // //     // console_log(isolate, "\n");
+        // //     // for (int _idx = 0; _idx < imageSizeBytes; _idx++) {
+        // //     //     // sprintf(script, "%02x ", pExportFrame->data[0][_idx]);
+        // //     //     // console_log(isolate, script);
+        // //     // }
+        // //
+        //     imageBuffer = ArrayBuffer::New(isolate, pExportFrame->data[0], imageSizeBytes);
+        // //     audioBuffer = ArrayBuffer::New(isolate, pAudioInputFrame->data[0], audioSizeBytes);
+        //     returns->Set(0, imageBuffer);
+        // //     returns->Set(1, audioBuffer);
+        //     args.GetReturnValue().Set(returns);
         //     break;
         // }
+    }
 
-        // avcodec_find_decoder(this->pFormatCtx->codec_id);
+    avImagePkt.data = NULL;
+    avImagePkt.size = 0;
+    avAudioPkt.data = NULL;
+    avAudioPkt.size = 0;
 
-        // avpkt.data = inbuf;
-        // while (avpkt.size > 0) {
-        while (av_read_frame(instance->pFormatCtx, &avpkt) >= 0) {
-            // std::cout << "Decoding..." << std::endl;
+    av_packet_unref(&avImagePkt);
+    av_packet_unref(&avAudioPkt);
 
-            // for (int buf_idx = 0; buf_idx < avpkt.size; buf_idx++) {
-            //     std::cout << std::hex << (int) avpkt.data[buf_idx] << " ";
-            // }
-            //
-            // std::cout << std::endl;
+    sws_freeContext(pSWSCtxForExport);
 
-            // std::cout << "    start" << std::endl;
-            len = avcodec_decode_video2(instance->pCodecCtx, frame, &got_frame, &avpkt);
-            // std::cout << "Decoded: " << std::dec << len << " bytes." << std::endl;
-
-            // if (len < 0)  {
-            //      if (!instance->pCodecCtx->codec) {
-            //         isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Codec not opened, or it is an encoder.")));
-            //     } else if (instance->pCodecCtx->codec->type != AVMEDIA_TYPE_VIDEO) {
-            //         isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "Invalid media type for video")));
-            //     } else {
-            //         isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, "failed to decode video")));
-            //     }
-            //
-            //     return;
-            // }
-
-            if (got_frame) {
-                frame_count++;
-                std::cout << "got frame" << std::endl;
-
-                int size = frame->width * frame->height * 3;
-                std::cout << std::dec << frame->width << " x " << std::dec << frame->height << " * " << 3 << std::endl;
-                std::cout << "sizeof: " << std::dec << sizeof(frame->data) << std::endl;
-                Local<ArrayBuffer> buffer = ArrayBuffer::New(isolate, frame->data, size);
-                args.GetReturnValue().Set(buffer);
-                break;
-            }
-        }
-    // }
-
-    avpkt.data = NULL;
-    avpkt.size = 0;
-    av_packet_unref(&avpkt);
+    av_free(videoBuffer);
+    av_free(pVideoInputFrame);
+    av_free(pAudioInputFrame);
+    // av_free(pExportFrame);
 
     // args.GetReturnValue().Set(true);
     // args.GetReturnValue().Set(Integer::New(isolate, (int32_t) (int8_t) *frame->data[0]));

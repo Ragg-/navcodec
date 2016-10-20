@@ -27,6 +27,7 @@
         "-D_LARGEFILE_SOURCE",
         "-std=c++11",
         "-O3",
+        # "-O0",
         "-Wall"
       ],
       "libraries" : [

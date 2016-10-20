@@ -6,6 +6,8 @@ export default class Stream
     {
         this._media = media;
 
+        // console.log(media.inputFile);
+
         this._stream = new native.NAVStreamReader(media.inputFile);
         this._stream.setMetaData({
             width: media.width,
