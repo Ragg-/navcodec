@@ -6,16 +6,18 @@ import printf from 'printf';
 import Stream from './stream';
 
 const THUMBNAIL_DEFAULTS = {
-  pix_fmt:native.PixelFormat.PIX_FMT_YUVJ420P,
-  width:64,
-  height:64,
-  bit_rate:1000
+  pix_fmt: native.PixelFormat.PIX_FMT_YUVJ420P,
+  width: 64,
+  height: 64,
+  bit_rate: 1000
 };
+
+export const AVFormatVersion = native.AVFormatVersion;
+export const PixelFormat = native.PixelFormat;
+export const CodecId = native.CodecId;
 
 export default class NAVCodec
 {
-    static CodecId = native.CodecId;
-
     static async open(input, options = {})
     {
         // Take first frame if the input is a sequence
@@ -28,7 +30,6 @@ export default class NAVCodec
 
     static async openStream(input, options = {})
     {
-        console.log('wait');
         const media = await NAVCodec.open(input, options);
         return new Stream(media);
     }

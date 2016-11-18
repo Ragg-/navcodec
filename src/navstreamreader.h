@@ -10,15 +10,29 @@ using namespace v8;
 extern "C" {
 #include <stdio.h>
 #include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/pixfmt.h>
+#include <libswscale/swscale.h>
 }
 
 class NAVStreamReader : public node::ObjectWrap {
 private:
-    const char * inputFilePath;
+    const char *inputFilePath;
+
     uint32_t frameCursor;
-    FILE* inputHandle;
-    AVCodecContext *pContext = NULL;
+    // FILE* inputHandle;
+
+    int videoStreamIdx;
+    int audioStreamIdx;
+    AVStream *pVideoStream;
+    AVStream *pAudioStream;
+
+    AVFormatContext *pFormatCtx;
+    AVCodec *pVideoCodec;
+    AVCodec *pAudioCodec;
+    AVCodecContext *pVideoCodecCtx;
+    AVCodecContext *pAudioCodecCtx;
 
 public:
     NAVStreamReader(const char *in_file);
