@@ -276,46 +276,46 @@ void NAVStreamReader::Next(const FunctionCallbackInfo<Value> &args) {
 
         if (avImagePkt.stream_index == instance->videoStreamIdx) {
             imageLen = avcodec_decode_video2(instance->pVideoCodecCtx, pVideoInputFrame, &got_video_frame, &avImagePkt);
-            std::cout << "Video decoded" << std::endl;
+            // std::cout << "Video decoded" << std::endl;
         }
 
-        if (avImagePkt.stream_index == instance->audioStreamIdx) {
-            std::cout << "Audio decoding" << std::endl;
+        // if (avImagePkt.stream_index == instance->audioStreamIdx) {
+        //     std::cout << "Audio decoding" << std::endl;
+        //
+        //     if (!instance->pAudioCodecCtx) {
+        //         std::cout << "missing AudioCodecCtx" << std::endl;
+        //     }
+        //
+        //     if (avAudioPkt.size >= 0) {
+        //         std::cout << "missing AudioPacket" << std::endl;
+        //     }
+        //
+        //     audioLen = avcodec_decode_audio4(instance->pAudioCodecCtx, NULL, &got_audio_frame, &avAudioPkt);
+        //     std::cout << "Audio decoded" << std::endl;
+        // }
 
-            if (!instance->pAudioCodecCtx) {
-                std::cout << "missing AudioCodecCtx" << std::endl;
-            }
-
-            if (avAudioPkt.size >= 0) {
-                std::cout << "missing AudioPacket" << std::endl;
-            }
-
-            audioLen = avcodec_decode_audio4(instance->pAudioCodecCtx, NULL, &got_audio_frame, &avAudioPkt);
-            std::cout << "Audio decoded" << std::endl;
-        }
-
-        // if (got_video_frame) {
-        // //     frame_count++;
-        // //     std::cout << "got frame" << std::endl;
-        // //
-        //     int imageSizeBytes = instance->pVideoCodecCtx->width * instance->pVideoCodecCtx->height * 4; // RGBA 4bytes
-        // //     int audioSizeBytes = av_samples_get_buffer_size(
-        // //         NULL,
-        // //         instance->pVideoCodecCtx->channels,
-        // //         pAudioInputFrame->nb_samples,
-        // //         instance->pVideoCodecCtx->sample_fmt,
-        // //         1
-        // //     );
-        // //
-        //     sws_scale(
-        //         pSWSCtxForExport,
-        //         pVideoInputFrame->data,
-        //         pVideoInputFrame->linesize,
-        //         0,
-        //         instance->pVideoCodecCtx->height,
-        //         pExportFrame->data,
-        //         pExportFrame->linesize
+        if (got_video_frame) {
+        //     frame_count++;
+            // std::cout << "got frame" << std::endl;
+        //
+            int imageSizeBytes = instance->pVideoCodecCtx->width * instance->pVideoCodecCtx->height * 4; // RGBA 4bytes
+        //     int audioSizeBytes = av_samples_get_buffer_size(
+        //         NULL,
+        //         instance->pVideoCodecCtx->channels,
+        //         pAudioInputFrame->nb_samples,
+        //         instance->pVideoCodecCtx->sample_fmt,
+        //         1
         //     );
+        //
+            sws_scale(
+                pSWSCtxForExport,
+                pVideoInputFrame->data,
+                pVideoInputFrame->linesize,
+                0,
+                instance->pVideoCodecCtx->height,
+                pExportFrame->data,
+                pExportFrame->linesize
+            );
         // //
         // //     // std::cout << std::dec << pVideoInputFrame->width << " x " << std::dec << pVideoInputFrame->height << " * " << 3 << std::endl;
         // //     // std::cout << "sizeof: " << std::dec << sizeof(pVideoInputFrame->data) << std::endl;
@@ -326,13 +326,14 @@ void NAVStreamReader::Next(const FunctionCallbackInfo<Value> &args) {
         // //     //     // console_log(isolate, script);
         // //     // }
         // //
-        //     imageBuffer = ArrayBuffer::New(isolate, pExportFrame->data[0], imageSizeBytes);
-        // //     audioBuffer = ArrayBuffer::New(isolate, pAudioInputFrame->data[0], audioSizeBytes);
+            imageBuffer = ArrayBuffer::New(isolate, pExportFrame->data[0], imageSizeBytes);
+        //     audioBuffer = ArrayBuffer::New(isolate, pAudioInputFrame->data[0], audioSizeBytes);
         //     returns->Set(0, imageBuffer);
         // //     returns->Set(1, audioBuffer);
         //     args.GetReturnValue().Set(returns);
-        //     break;
-        // }
+            args.GetReturnValue().Set(imageBuffer);
+            break;
+        }
     }
 
     avImagePkt.data = NULL;
